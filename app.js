@@ -3,7 +3,7 @@ const CONFIG = {
     // Direct link to your Page's Messenger chat
     messengerUrl: "https://m.me/100089330907916", 
     // Paste your Google Sheet CSV Link below
-    sheetUrl: "PASTE_YOUR_CSV_LINK_HERE" 
+    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBquyZXkcMOzDv_14qyXq7sQvxqQ6k1l6tWZsiqspZ_mgl88Lqx08h3wUVYu9W9-MIP-ja5f-Yvtsj/pub?gid=1109857950&single=true&output=csv" 
 };
 
 let products = [];
@@ -137,7 +137,7 @@ window.copyOrderDetails = () => {
     
     text += `🛒 ORDER SUMMARY:\n`;
     cart.forEach(i => {
-        text += `◽ ${i.qty}x ${i.name} ....... ₱${(i.price * i.qty).toFixed(2)}\n`;
+        text += `✅ ${i.qty}x ${i.name} ....... ₱${(i.price * i.qty).toFixed(2)}\n`;
     });
     
     text += `\n━━━━━━━━━━━━━━━━━━━━\n`;
