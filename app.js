@@ -74,7 +74,7 @@ window.addToCart = (id) => {
     const p = products.find(x => x.id === id);
     const existing = cart.find(x => x.id === id);
     if (existing) {
-        if(existing.qty >= p.stock) return alert("Sorry, we only have " + p.stock + " left!");
+        if(existing.qty >= p.stock) return ("Sorry, we only have " + p.stock + " left!");
         existing.qty++;
     } else {
         cart.push({...p, qty: 1});
@@ -106,7 +106,7 @@ function updateUI() {
 window.changeQty = (id, delta) => {
     const idx = cart.findIndex(i => i.id === id);
     const p = products.find(x => x.id === id);
-    if (delta > 0 && cart[idx].qty >= p.stock) return alert("No more stock available!");
+    if (delta > 0 && cart[idx].qty >= p.stock) return ("No more stock available!");
     cart[idx].qty += delta;
     if (cart[idx].qty <= 0) cart.splice(idx, 1);
     updateUI();
@@ -116,8 +116,8 @@ window.changeQty = (id, delta) => {
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
     const addr = document.getElementById('customer-address').value.trim();
-    if(cart.length === 0) return alert("Add some treats first!");
-    if(!name || !addr) return alert("Please provide your name and address.");
+    if(cart.length === 0) return ("Add some treats first!");
+    if(!name || !addr) return ("Please provide your name and address.");
     
     document.getElementById('cart-modal').classList.remove('active');
     document.getElementById('checkout-modal').classList.add('active');
@@ -145,7 +145,7 @@ window.copyOrderDetails = () => {
 
 window.sendToMessenger = () => {
     if(!hasCopied) return alert("⚠️ Please click '1. Copy Order Details' first!");
-    alert("Steps to finish your order:\n1. We are opening our Facebook Page.\n2. Tap the 'Message' button.\n3. Paste the order and Send! 🚀");
+    alert("Order details copied! 📋\n\n1. The chat will open now.\n2. Long-press (Hold) the message box.\n3. Select 'PASTE' and hit SEND! 🚀");
     window.location.href = CONFIG.messengerUrl;
 };
 
@@ -165,6 +165,7 @@ function showToast(m) {
 }
 
 loadProducts();
+
 
 
 
