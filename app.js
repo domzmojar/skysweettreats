@@ -1,16 +1,16 @@
 const CONFIG = {
     currency: "₱",
-    // 1. UPDATE THIS TO YOUR FACEBOOK PAGE LINK
+    // Direct link to your Page's Messenger chat
     messengerUrl: "https://m.me/100089330907916", 
-    // 2. PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK HERE
-    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBquyZXkcMOzDv_14qyXq7sQvxqQ6k1l6tWZsiqspZ_mgl88Lqx08h3wUVYu9W9-MIP-ja5f-Yvtsj/pub?gid=1109857950&single=true&output=csv" 
+    // Paste your Google Sheet CSV Link below
+    sheetUrl: "PASTE_YOUR_CSV_LINK_HERE" 
 };
 
 let products = [];
 let cart = [];
 let hasCopied = false;
 
-// Initialize App: Fetch data from Google Sheets
+// 1. Fetch products from Google Sheets
 async function loadProducts() {
     try {
         const response = await fetch(CONFIG.sheetUrl);
@@ -32,11 +32,11 @@ async function loadProducts() {
         renderMenu();
     } catch (error) {
         console.error("Error loading products:", error);
-        document.getElementById('menu-grid').innerHTML = "<p style='text-align:center; padding:20px;'>Menu is updating... please refresh in a minute.</p>";
+        document.getElementById('menu-grid').innerHTML = "<p>Menu updating... Please refresh.</p>";
     }
 }
 
-// Render the Menu with Live Stock Badges
+// 2. Render Menu with Stock Badges
 function renderMenu() {
     const grid = document.getElementById('menu-grid');
     grid.innerHTML = products.map(p => {
@@ -48,7 +48,7 @@ function renderMenu() {
         } else if (p.stock <= 5) {
             stockBadge = `<span class="tag low-stock">Only ${p.stock} left!</span>`;
         } else {
-            stockBadge = `<span class="tag available">${p.stock} in stock</span>`;
+            stockBadge = `<span class="tag available">In Stock</span>`;
         }
 
         return `
@@ -61,7 +61,7 @@ function renderMenu() {
                         <span class="price">₱${p.price}</span>
                     </div>
                     ${isSoldOut ? 
-                        `<button class="add-btn disabled" disabled>Not Available</button>` : 
+                        `<button class="add-btn disabled" disabled>Unavailable</button>` : 
                         `<button class="add-btn" onclick="addToCart('${p.id}')">+ Add</button>`
                     }
                 </div>
@@ -69,12 +69,12 @@ function renderMenu() {
     }).join('');
 }
 
-// Cart Logic
+// 3. Cart Logic
 window.addToCart = (id) => {
     const p = products.find(x => x.id === id);
     const existing = cart.find(x => x.id === id);
     if (existing) {
-        if(existing.qty >= p.stock) return ("Sorry, we only have " + p.stock + " left!");
+        if(existing.qty >= p.stock) return alert(`Sorry, we only have ${p.stock} left!`);
         existing.qty++;
     } else {
         cart.push({...p, qty: 1});
@@ -91,7 +91,7 @@ function updateUI() {
     document.getElementById('modal-total').textContent = `₱${totalVal.toFixed(2)}`;
     
     const cartContainer = document.getElementById('cart-items');
-    cartContainer.innerHTML = cart.length === 0 ? '<p style="text-align:center;">Your cart is empty</p>' : cart.map(i => `
+    cartContainer.innerHTML = cart.length === 0 ? '<p style="text-align:center;">Empty Cart</p>' : cart.map(i => `
         <div class="cart-item">
             <div><strong>${i.name}</strong><br><small>₱${i.price} each</small></div>
             <div style="display:flex; align-items:center; gap:10px;">
@@ -106,89 +106,68 @@ function updateUI() {
 window.changeQty = (id, delta) => {
     const idx = cart.findIndex(i => i.id === id);
     const p = products.find(x => x.id === id);
-    if (delta > 0 && cart[idx].qty >= p.stock) return ("No more stock available!");
+    if (delta > 0 && cart[idx].qty >= p.stock) return alert("No more stock!");
     cart[idx].qty += delta;
     if (cart[idx].qty <= 0) cart.splice(idx, 1);
     updateUI();
 };
 
-// Checkout & Copy Flow
-window.openCheckout = () => {
+// 4. Upgraded Receipt Generation
+window.copyOrderDetails = () => {
     const name = document.getElementById('customer-name').value.trim();
     const addr = document.getElementById('customer-address').value.trim();
-    if(cart.length === 0) return ("Add some treats first!");
-    if(!name || !addr) return ("Please provide your name and address.");
-    
-    document.getElementById('cart-modal').classList.remove('active');
-    document.getElementById('checkout-modal').classList.add('active');
-    document.getElementById('final-summary-text').innerHTML = cart.map(i => `• ${i.qty}x ${i.name}`).join('<br>');
-};
-
-window.copyOrderDetails = () => {
-    const name = document.getElementById('customer-name').value;
-    const addr = document.getElementById('customer-address').value;
     const type = document.getElementById('order-type').value;
     const pay = document.getElementById('payment-method').value;
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     
-    let text = `🛒 SKY SWEET TREATS ORDER\n`;
-    text += `👤 Name: ${name}\n`;
-    text += `📍 Addr: ${addr}\n`;
-    text += `🚚 Type: ${type}\n`;
-    text += `💳 Pay: ${pay}\n`;
-    text += `----------\n`;
+    if(!name || !addr) return alert("Please enter your name and address!");
+
+    // Timestamp for Receipt
+    const now = new Date();
+    const timestamp = now.toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+
+    let text = `✨ SKY SWEET TREATS ORDER ✨\n`;
+    text += `📅 ${timestamp}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `👤 CUSTOMER: ${name}\n`;
+    text += `📍 ADDRESS: ${addr}\n`;
+    text += `🚚 METHOD: ${type}\n`;
+    text += `💳 PAYMENT: ${pay}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
+    text += `🛒 ORDER SUMMARY:\n`;
     cart.forEach(i => {
-        text += `• ${i.qty}x ${i.name}\n`;
+        text += `◽ ${i.qty}x ${i.name} ....... ₱${(i.price * i.qty).toFixed(2)}\n`;
     });
     
-    text += `----------\n`;
-    text += `💰 TOTAL: ₱${total.toFixed(2)}\n\n`;
+    text += `\n━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `💰 TOTAL AMOUNT: ₱${total.toFixed(2)}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-    // ADDED: Special reminder for GCash users
     if (pay === "GCASH") {
-        text += `⚠️ REMINDER: PLEASE PASTE THIS AND SEND THE GCASH RECEIPT! ✅`;
+        text += `📝 INSTRUCTION FOR GCASH:\n`;
+        text += `1. Please PASTE this order first.\n`;
+        text += `2. SEND your GCash Receipt screenshot.\n`;
+        text += `⚠️ PLEASE SEND THE GCASH RECEIPT! ✅\n`;
+        text += `\nRef No: _________________`;
     } else {
-        text += `(Please paste this to confirm your order)`;
+        text += `👉 Please PASTE this to our chat to confirm your order!`;
     }
 
     navigator.clipboard.writeText(text).then(() => {
         hasCopied = true;
         const btn = document.getElementById('copy-details-btn');
-        btn.innerHTML = "✅ Details Copied!";
+        btn.innerHTML = "✅ RECEIPT COPIED!";
         btn.style.background = "#28a745";
-        
-        // Let them know via alert as well
-        if (pay === "GCASH") {
-            alert("Order copied! Don't forget to attach your GCash Receipt in the chat! 📲");
-        }
+        alert("Receipt & Timestamp Copied! 📋");
     });
 };
 
 window.sendToMessenger = () => {
     if(!hasCopied) return alert("⚠️ Please click '1. Copy Order Details' first!");
-    alert("Order details copied! 📋\n\n1. The chat will open now.\n2. Long-press (Hold) the message box.\n3. Select 'PASTE' and hit SEND! 🚀");
+    alert("ORDER COPIED! 📋\n\n1. The chat will open now.\n2. Tap the message box and select PASTE.\n3. Hit SEND! 🚀");
     window.location.href = CONFIG.messengerUrl;
 };
 
-// UI Helpers
-window.toggleGcashInfo = () => {
-    const isGcash = document.getElementById('payment-method').value === 'GCASH';
-    document.getElementById('gcash-info').style.display = isGcash ? 'block' : 'none';
-};
-
-window.closeModal = (id) => document.getElementById(id).classList.remove('active');
-document.getElementById('open-cart-btn').onclick = () => document.getElementById('cart-modal').classList.add('active');
-
-function showToast(m) {
-    const t = document.getElementById('toast');
-    t.textContent = m; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2000);
-}
-
+// ... existing UI helpers (closeModal, toggleGcashInfo, showToast) ...
 loadProducts();
-
-
-
-
-
