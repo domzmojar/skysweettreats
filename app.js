@@ -3,7 +3,7 @@ const CONFIG = {
     // 1. UPDATE THIS TO YOUR FACEBOOK PAGE LINK
     messengerUrl: "https://m.me/domzmojar", 
     // 2. PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK HERE
-    sheetUrl: "PASTE_YOUR_CSV_LINK_HERE" 
+    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBquyZXkcMOzDv_14qyXq7sQvxqQ6k1l6tWZsiqspZ_mgl88Lqx08h3wUVYu9W9-MIP-ja5f-Yvtsj/pub?gid=1109857950&single=true&output=csv" 
 };
 
 let products = [];
@@ -165,3 +165,4 @@ function showToast(m) {
 }
 
 loadProducts();
+
