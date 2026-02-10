@@ -131,15 +131,37 @@ window.copyOrderDetails = () => {
     const pay = document.getElementById('payment-method').value;
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     
-    let text = `🛒 SKY SWEET TREATS ORDER\n👤 Name: ${name}\n📍 Addr: ${addr}\n🚚 Type: ${type}\n💳 Pay: ${pay}\n----------\n`;
-    cart.forEach(i => text += `• ${i.qty}x ${i.name}\n`);
-    text += `----------\n💰 TOTAL: ₱${total.toFixed(2)}`;
+    let text = `🛒 SKY SWEET TREATS ORDER\n`;
+    text += `👤 Name: ${name}\n`;
+    text += `📍 Addr: ${addr}\n`;
+    text += `🚚 Type: ${type}\n`;
+    text += `💳 Pay: ${pay}\n`;
+    text += `----------\n`;
+    
+    cart.forEach(i => {
+        text += `• ${i.qty}x ${i.name}\n`;
+    });
+    
+    text += `----------\n`;
+    text += `💰 TOTAL: ₱${total.toFixed(2)}\n\n`;
+
+    // ADDED: Special reminder for GCash users
+    if (pay === "GCASH") {
+        text += `⚠️ REMINDER: PLEASE PASTE THIS AND SEND THE GCASH RECEIPT! ✅`;
+    } else {
+        text += `(Please paste this to confirm your order)`;
+    }
 
     navigator.clipboard.writeText(text).then(() => {
         hasCopied = true;
         const btn = document.getElementById('copy-details-btn');
         btn.innerHTML = "✅ Details Copied!";
         btn.style.background = "#28a745";
+        
+        // Let them know via alert as well
+        if (pay === "GCASH") {
+            alert("Order copied! Don't forget to attach your GCash Receipt in the chat! 📲");
+        }
     });
 };
 
@@ -165,6 +187,7 @@ function showToast(m) {
 }
 
 loadProducts();
+
 
 
 
