@@ -9,8 +9,8 @@
 <body>
 
     <header>
-        <h1>Sky Sweet Treats</h1>
-        <div id="cart-btn" onclick="openModal('cart-modal')">
+        <h1>☁️ Sky Sweet Treats</h1>
+        <div class="cart-btn" onclick="openModal('cart-modal')">
             🛒 Cart (<span id="cart-count">0</span>)
         </div>
     </header>
@@ -23,37 +23,37 @@
             <span class="close" onclick="closeModal('cart-modal')">&times;</span>
             <h2>Your Order</h2>
             <div id="cart-items"></div>
-            <hr>
-            <div class="input-group">
-                <input type="text" id="customer-name" placeholder="Full Name">
-                <input type="text" id="customer-address" placeholder="Address">
+            <div class="total-section">
+                <strong>Total: ₱<span id="cart-total">0.00</span></strong>
             </div>
-            <button class="main-btn" onclick="openCheckout()">Checkout</button>
+            <div class="input-group">
+                <input type="text" id="customer-name" placeholder="Your Full Name">
+                <input type="text" id="customer-address" placeholder="Complete Delivery Address">
+            </div>
+            <button class="btn checkout-btn" onclick="goToCheckout()">Checkout</button>
         </div>
     </div>
 
     <div id="checkout-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('checkout-modal')">&times;</span>
-            <h2>Complete Order</h2>
-            <div id="final-summary"></div>
+            <h2>Final Step</h2>
+            <div id="summary-list"></div>
             
+            <label>Order Type:</label>
             <select id="order-type">
                 <option value="DELIVERY">Delivery</option>
-                <option value="PICKUP">Pickup</option>
+                <option value="PICKUP">Store Pickup</option>
             </select>
 
-            <select id="payment-method" onchange="toggleGcash()">
+            <label>Payment:</label>
+            <select id="payment-method">
                 <option value="COD">Cash on Delivery</option>
                 <option value="GCASH">GCash</option>
             </select>
 
-            <div id="gcash-details" style="display:none;">
-                <p>Send to: DOMINGO M. (09XX-XXX-XXXX)</p>
-            </div>
-
-            <button id="copy-btn" class="main-btn" onclick="copyOrderDetails()">1. Copy Order Details</button>
-            <button class="msg-btn" onclick="sendToMessenger()">2. Send to Messenger</button>
+            <button id="copy-btn" class="btn copy-btn" onclick="handleCopy()">1. Copy Order Details</button>
+            <button class="btn msg-btn" onclick="handleMessenger()">2. Send to Messenger</button>
         </div>
     </div>
 
