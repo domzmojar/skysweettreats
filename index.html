@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sky Sweet Treats | Online Order</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="container header-flex">
+            <img src="images/logo.jpg" alt="Logo" class="brand-logo" onerror="this.src='https://placehold.co/100x100?text=Sky+Sweet'">
+            <div class="brand-text">
+                <h1>Sky Sweet Treats</h1>
+                <p>Make your day sweet with Sky Sweet Treats! Sky ang limit!</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="menu-grid" class="menu-grid"></div>
+    </main>
+
+    <div class="floating-cart" id="open-cart-btn">
+        <div class="cart-icon">🛒 <span id="cart-count" class="badge">0</span></div>
+        <div class="cart-total">Total: <span id="float-total">₱0.00</span></div>
+    </div>
+
+    <div id="cart-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Your Order</h2>
+                <button onclick="closeModal('cart-modal')" class="close-btn">&times;</button>
+            </div>
+            
+            <div id="cart-items" class="cart-items-container"></div>
+
+            <div class="customer-details">
+                <h3>Delivery Details</h3>
+                <div class="form-group"><label>Full Name</label><input type="text" id="customer-name" placeholder="Juan Dela Cruz"></div>
+                <div class="form-group"><label>Address / Landmark</label><textarea id="customer-address" placeholder="Brgy, Street, House No."></textarea></div>
+            </div>
+            
+            <div class="modal-footer">
+                <div class="modal-total-display">Total: <span id="modal-total">₱0.00</span></div>
+                <button onclick="openCheckout()" class="btn-primary">Next: Payment & Delivery ➔</button>
+                <span class="back-to-menu-link" onclick="closeModal('cart-modal')">Add more items</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="checkout-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Checkout Details</h2>
+                <button onclick="closeModal('checkout-modal')" class="close-btn">&times;</button>
+            </div>
+            <div class="checkout-body">
+                <div class="option-group">
+                    <label>Order Type:</label>
+                    <select id="order-type">
+                        <option value="Delivery">Delivery</option>
+                        <option value="Pick-Up">Pick-Up</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <label>Mode of Payment:</label>
+                    <select id="payment-method" onchange="toggleGcashInfo()">
+                        <option value="COD">COD (Cash on Delivery)</option>
+                        <option value="GCASH">GCash</option>
+                    </select>
+                </div>
+
+                <div id="gcash-info" class="payment-info-box" style="display:none;">
+                    <p><strong>Gcash:</strong> 09264569430<br><strong>Name:</strong> K** M.</p>
+                    <img src="images/qr-pay.jpg" id="qr-image-el" class="qr-image" alt="GCash QR">
+                    <button onclick="downloadQR()" class="btn-download-qr">📥 Download QR Code</button>
+                    <div class="receipt-reminder">
+                        ⚠️ <strong>Final Step:</strong> After placing your order, please send your <strong>GCash Receipt</strong> to our Messenger!
+                    </div>
+                </div>
+
+                <div class="order-summary-box">
+                    <strong>Final Order Summary:</strong>
+                    <div id="final-summary-text"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="copy-details-btn" onclick="copyOrderDetails()" class="btn-secondary">1. Copy Order Details 📋</button>
+                <button id="messenger-btn" onclick="sendToMessenger()" class="btn-primary" style="margin-top:10px; background:#0084FF;">2. Paste Order Details via Messenger 🚀</button>
+                <span class="back-to-menu-link" onclick="closeModal('checkout-modal')">Go back to menu</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
