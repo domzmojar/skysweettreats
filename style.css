@@ -158,3 +158,16 @@ body {
     .product-info h3 { font-size: .8rem; }
     .add-btn { font-size: .8rem; }
 }
+
+/* --------- receipt reminder -------*/
+.receipt-reminder {
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    color: #856404;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    margin-top: 12px;
+    text-align: left;
+}
+
