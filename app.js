@@ -1,6 +1,7 @@
 const CONFIG = {
     currency: "₱",
-    messengerUrl: "https://www.facebook.com/profile.php?id=100089330907916", // Update this!
+    // !!! IMPORTANT: Put your Page Name or ID here !!!
+    messengerUrl: "https://www.facebook.com/profile.php?id=100089330907916", 
 };
 
 const products = [
@@ -50,7 +51,7 @@ function updateUI() {
     document.getElementById('modal-total').textContent = `₱${totalVal.toFixed(2)}`;
     
     const cartContainer = document.getElementById('cart-items');
-    cartContainer.innerHTML = cart.length === 0 ? '<p style="text-align:center;">Your cart is empty</p>' : cart.map(i => `
+    cartContainer.innerHTML = cart.length === 0 ? '<p style="text-align:center; padding:10px;">Your cart is empty</p>' : cart.map(i => `
         <div class="cart-item">
             <div><strong>${i.name}</strong><br><small>₱${i.price} each</small></div>
             <div style="display:flex; align-items:center; gap:10px;">
@@ -72,8 +73,8 @@ window.changeQty = (id, delta) => {
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
     const addr = document.getElementById('customer-address').value.trim();
-    if(cart.length === 0) return alert("Please add items to your cart first!");
-    if(!name || !addr) return alert("Please fill in your Name and Address.");
+    if(cart.length === 0) return alert("Add items first!");
+    if(!name || !addr) return alert("Please fill in Name and Address.");
     
     hasCopied = false;
     document.getElementById('cart-modal').classList.remove('active');
@@ -106,7 +107,7 @@ window.copyOrderDetails = () => {
     
     let text = `🛒 SKY SWEET TREATS ORDER\n👤 Name: ${name}\n📍 Addr: ${addr}\n🚚 Type: ${type}\n💳 Pay: ${pay}\n----------\n`;
     cart.forEach(i => text += `• ${i.qty}x ${i.name}\n`);
-    text += `----------\n💰 TOTAL: ₱${total}\n\n*NOTICE: DON'T FORGET TO SEND YOUR GCASH RECEIPT!*`;
+    text += `----------\n💰 TOTAL: ₱${total.toFixed(2)}\n\n*REMINDER: PLEASE PASTE THIS AND SEND THE GCASH RECEIPT!*`;
 
     navigator.clipboard.writeText(text).then(() => {
         hasCopied = true;
@@ -119,7 +120,12 @@ window.copyOrderDetails = () => {
 };
 
 window.sendToMessenger = () => {
-    if(!hasCopied) return alert("⚠️ Please click 'Copy Order Details' first so you can paste it to us!");
+    if(!hasCopied) {
+        return alert("⚠️ Please click '1. Copy Order Details' first!");
+    }
+    
+    // Final instruction before leaving the site
+    alert("Opening Messenger... \n\nJust PASTE and SEND once the chat opens! 🚀");
     window.location.href = CONFIG.messengerUrl;
 };
 
