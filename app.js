@@ -1,7 +1,7 @@
 const CONFIG = {
     currency: "₱",
     // !!! IMPORTANT: Put your Page Name or ID here !!!
-    messengerUrl: "https://www.facebook.com/profile.php?id=100089330907916", 
+    messengerUrl: "https://www.facebook.com/share/14PxL2iEaca/", 
 };
 
 const products = [
@@ -125,7 +125,7 @@ window.sendToMessenger = () => {
     }
     
     // Final instruction before leaving the site
-    alert("Opening Messenger... \n\nJust PASTE and SEND once the chat opens! 🚀");
+    alert("Instructions:\n1. We are redirecting you to our Page.\n2. Tap the 'Message' button.\n3. Paste your order details and hit Send! 🚀");
     window.location.href = CONFIG.messengerUrl;
 };
 
@@ -139,3 +139,4 @@ function showToast(m) {
 }
 
 initMenu();
+
