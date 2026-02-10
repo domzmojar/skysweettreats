@@ -58,3 +58,33 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-light); co
 .badge { background: var(--primary); padding: 2px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
 .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 12px 24px; border-radius: 30px; opacity: 0; transition: 0.3s; z-index: 300; pointer-events: none; }
 .toast.show { opacity: 1; top: 30px; }
+
+/* Stock Tags & Badges */
+.tag { 
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    border-radius: 50px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+.available { background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9; }
+.low-stock { background: #FFF3E0; color: #E65100; border: 1px solid #FFB74D; animation: pulse 2s infinite; }
+.sold-out { background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2; }
+
+.disabled { background: #ccc !important; cursor: not-allowed; }
+.sold-out-gray { opacity: 0.6; filter: grayscale(1); }
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+/* Modal Enhancements */
+.modal-body select, .modal-body input {
+    font-size: 16px; /* Prevents iPhone zoom on focus */
+    padding: 12px;
+    background: #f9f9f9;
+}
