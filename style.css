@@ -1057,30 +1057,16 @@ body {
     box-shadow: 0 0 0 3px rgba(255,87,34,0.1);
 }
 
-.product-card-variant .price {
-    margin-bottom: 0;
-}
-
-.product-card-variant .add-btn {
-    margin-top: 8px;
-}
-
-/* ===== UNAVAILABLE FLAVOR OPTIONS ===== */
-.variant-dropdown option:disabled {
-    color: #999;
-    text-decoration: line-through;
-    background-color: #f5f5f5;
-}
-
-/* ===== PLACEHOLDER OPTION – FORCED BRAND COLOR ===== */
-.variant-dropdown option.placeholder-option {
+/* ===== PLACEHOLDER OPTION – BRAND COLOR ===== */
+.variant-dropdown option.placeholder-option,
+.variant-dropdown option.placeholder-option:disabled,
+.variant-dropdown option[value=""][disabled][selected] {
     background-color: var(--primary) !important;
-    background: var(--primary) !important; /* Fallback */
+    background: var(--primary) !important;
     color: white !important;
     font-weight: bold !important;
     text-decoration: none !important;
     -webkit-text-fill-color: white !important;
-    text-shadow: none !important;
 }
 
 /* Force every possible state */
@@ -1088,27 +1074,24 @@ body {
 .variant-dropdown option.placeholder-option:checked,
 .variant-dropdown option.placeholder-option:selected,
 .variant-dropdown option.placeholder-option:hover,
-.variant-dropdown option.placeholder-option:focus,
-.variant-dropdown option[value=""][disabled][selected] {
+.variant-dropdown option.placeholder-option:focus {
     background-color: var(--primary) !important;
     background: var(--primary) !important;
     color: white !important;
     -webkit-text-fill-color: white !important;
 }
 
-/* Ensure unavailable flavors stay gray + strikethrough */
+/* ===== UNAVAILABLE FLAVORS – GRAY + STRIKETHROUGH ===== */
 .variant-dropdown option:disabled:not(.placeholder-option) {
     background-color: #f5f5f5 !important;
     color: #999 !important;
     text-decoration: line-through !important;
 }
 
-/* Override system‑level hover highlighting */
-.variant-dropdown option.placeholder-option::-moz-selection {
-    background-color: var(--primary);
-    color: white;
+.product-card-variant .price {
+    margin-bottom: 0;
 }
-.variant-dropdown option.placeholder-option::selection {
-    background-color: var(--primary);
-    color: white;
+
+.product-card-variant .add-btn {
+    margin-top: 8px;
 }
