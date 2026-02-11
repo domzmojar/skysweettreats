@@ -9,8 +9,8 @@ const CONFIG = {
 let products = [];
 let cart = [];
 let hasCopied = false;
-let refreshPromptCount = 0;        // number of times refresh prompt was shown
-const MAX_REFRESH_PROMPTS = 2;     // limit to 2 per session
+let refreshPromptCount = 0;
+const MAX_REFRESH_PROMPTS = 1;   // Show the banner only once per session
 
 // ============================================
 // LOAD PRODUCTS (initial + manual refresh)
@@ -20,7 +20,7 @@ async function loadProducts(showToastOnSuccess = true) {
         const response = await fetch(`${CONFIG.sheetUrl}&t=${Date.now()}`);
         const data = await response.text();
         const rows = data.split('\n').slice(1);
-        
+
         const newProducts = rows.map(row => {
             const cols = row.split(',');
             return {
@@ -56,7 +56,7 @@ async function loadProducts(showToastOnSuccess = true) {
 }
 
 // ============================================
-// MANUAL REFRESH PROMPT (soft call-to-action)
+// GENTLE REFRESH BANNER (non‑obstructive, top of page)
 // ============================================
 function showRefreshPrompt() {
     if (refreshPromptCount >= MAX_REFRESH_PROMPTS) return;
@@ -67,35 +67,31 @@ function showRefreshPrompt() {
         <div class="refresh-prompt-content">
             <span class="refresh-icon">🔄</span>
             <div class="refresh-text">
-                <strong>Check for Stock Updates?</strong>
-                <small>We may have added new items or updated availability.</small>
+                <strong>Stock may have changed?</strong>
+                <small>Check for updates</small>
             </div>
             <button class="refresh-now-btn" onclick="handleRefreshClick()">Check Now</button>
             <button class="refresh-close-btn" onclick="this.closest('.refresh-prompt').remove()">✕</button>
         </div>
     `;
-    document.body.appendChild(prompt);
+    document.body.prepend(prompt);  // Add at the very top of the page
     refreshPromptCount++;
 }
 
 window.handleRefreshClick = function() {
     loadProducts(true);
-    // Remove all visible prompts
     document.querySelectorAll('.refresh-prompt').forEach(el => el.remove());
-    // Schedule next prompt only if under limit
-    if (refreshPromptCount < MAX_REFRESH_PROMPTS) {
-        setTimeout(showRefreshPrompt, 120000); // 2 minutes
-    }
+    // No second prompt – we show it only once.
 };
 
 // ============================================
-// RENDER MENU (no stock‑badge animation changes)
+// RENDER MENU (with stock badges and "Add to Cart")
 // ============================================
 function renderMenu() {
     const grid = document.getElementById('menu-grid');
     grid.innerHTML = products.map(p => {
         const isSoldOut = p.stock <= 0;
-        
+
         let stockBadge = '';
         if (isSoldOut) {
             stockBadge = `<span class="tag sold-out">⛔ SOLD OUT</span>`;
@@ -119,8 +115,8 @@ function renderMenu() {
                         <div class="stock-badge">${stockBadge}</div>
                         <span class="price">₱${p.price.toFixed(2)}</span>
                     </div>
-                    ${isSoldOut ? 
-                        `<button class="add-btn disabled" disabled>⛔ Sold Out</button>` : 
+                    ${isSoldOut ?
+                        `<button class="add-btn disabled" disabled>⛔ Sold Out</button>` :
                         `<button class="add-btn" onclick="addToCart('${p.id}', event)">➕ Add to Cart</button>`
                     }
                 </div>
@@ -129,12 +125,12 @@ function renderMenu() {
 }
 
 // ============================================
-// CART & CHECKOUT (exactly as before – keep everything)
+// CART & ANIMATIONS
 // ============================================
 window.addToCart = (id, event) => {
     const p = products.find(x => x.id === id);
     if (!p) return showToast("❌ Product not available");
-    
+
     if (event) {
         const button = event.currentTarget;
         const buttonRect = button.getBoundingClientRect();
@@ -144,13 +140,13 @@ window.addToCart = (id, event) => {
         const startY = buttonRect.top + buttonRect.height / 2;
         const endX = cartRect.left + cartRect.width / 2;
         const endY = cartRect.top + cartRect.height / 2;
-        
+
         for (let i = 0; i < 3; i++) {
             setTimeout(() => {
-                createFlyingImage(p.image || 'https://placehold.co/300x400?text=Sweet', 
-                                 startX + Math.random() * 20 - 10, 
-                                 startY + Math.random() * 20 - 10,
-                                 endX, endY);
+                createFlyingImage(p.image || 'https://placehold.co/300x400?text=Sweet',
+                    startX + Math.random() * 20 - 10,
+                    startY + Math.random() * 20 - 10,
+                    endX, endY);
             }, i * 100);
         }
     }
@@ -161,7 +157,7 @@ window.addToCart = (id, event) => {
         existing.qty++;
     } else {
         if (p.stock <= 0) return showToast("⛔ Sold out!");
-        cart.push({...p, qty: 1});
+        cart.push({ ...p, qty: 1 });
     }
     updateUI();
     showToast(`✅ Added ${p.name}`);
@@ -199,15 +195,18 @@ function animateCart() {
     }, 300);
 }
 
+// ============================================
+// UPDATE CART UI
+// ============================================
 function updateUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
     const totalVal = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     document.getElementById('cart-count').textContent = totalQty;
     document.getElementById('float-total').textContent = `₱${totalVal.toFixed(2)}`;
     document.getElementById('modal-total').textContent = `₱${totalVal.toFixed(2)}`;
-    
+
     const cartContainer = document.getElementById('cart-items');
-    cartContainer.innerHTML = cart.length === 0 
+    cartContainer.innerHTML = cart.length === 0
         ? '<div class="empty-cart"><p>🛒 Your cart is empty</p><p class="empty-hint">Add some sweet treats! 🍰</p></div>'
         : cart.map(i => `
             <div class="cart-item">
@@ -227,7 +226,11 @@ function updateUI() {
 window.changeQty = (id, delta) => {
     const idx = cart.findIndex(i => i.id === id);
     const p = products.find(x => x.id === id);
-    if (!p) { cart.splice(idx, 1); updateUI(); return; }
+    if (!p) {
+        cart.splice(idx, 1);
+        updateUI();
+        return;
+    }
     if (delta > 0) {
         if (cart[idx].qty >= p.stock) return showToast(`⚠️ Only ${p.stock} ${p.name} available!`);
         cart[idx].qty += delta;
@@ -238,6 +241,9 @@ window.changeQty = (id, delta) => {
     updateUI();
 };
 
+// ============================================
+// VALIDATE CART AGAINST CURRENT STOCK (after refresh)
+// ============================================
 function validateCartAgainstNewStock() {
     let changed = false;
     const removed = [];
@@ -261,7 +267,7 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
-// CHECKOUT & RECEIPT (with updated contact time)
+// CHECKOUT & RECEIPT (with updated 5-10 minutes)
 // ============================================
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
@@ -269,10 +275,10 @@ window.openCheckout = () => {
     if (cart.length === 0) return showToast("🛒 Add some treats first!");
     if (!name) return showToast("👤 Please enter your name");
     if (!addr) return showToast("📍 Please enter your address");
-    
+
     document.getElementById('cart-modal').classList.remove('active');
     document.getElementById('checkout-modal').classList.add('active');
-    document.getElementById('final-summary-text').innerHTML = cart.map(i => 
+    document.getElementById('final-summary-text').innerHTML = cart.map(i =>
         `<div class="summary-item">${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}</div>`
     ).join('');
 };
@@ -283,11 +289,11 @@ window.copyOrderDetails = () => {
     const type = document.getElementById('order-type').value;
     const pay = document.getElementById('payment-method').value;
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    
+
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
-    
+
     let text = `✨ SKY SWEET TREATS ✨\n`;
     text += `══════════════════════════════\n\n`;
     text += `📋 **ORDER RECEIPT**\n`;
@@ -321,7 +327,7 @@ window.copyOrderDetails = () => {
     text += `• Hours: ${CONFIG.businessHours}\n\n`;
     text += `══════════════════════════════\n`;
     text += `Thank you for your order! 🎉\n`;
-    text += `We'll contact you within 5-10 minutes.`;   // <--- UPDATED
+    text += `We'll contact you within 5-10 minutes.`;   // UPDATED
 
     navigator.clipboard.writeText(text).then(() => {
         hasCopied = true;
@@ -336,8 +342,11 @@ window.sendToMessenger = () => {
     if (!hasCopied) return showToast("⚠️ Please click '1. Copy Order Details' first!");
     const pay = document.getElementById('payment-method').value;
     let msg = "📱 **Ready to Send Your Order?**\n\n✅ Order details copied!\n\n**NEXT STEPS:**\n1. We'll open Messenger now\n2. **PASTE** the order details\n3. **SEND** the message\n";
-    if (pay === 'GCASH') msg += "4. **SEND SCREENSHOT** of your GCash payment\n\nYour order will be processed after payment confirmation.";
-    else msg += "\nWe'll confirm your order within 5-10 minutes.";   // <--- UPDATED
+    if (pay === 'GCASH') {
+        msg += "4. **SEND SCREENSHOT** of your GCash payment\n\nYour order will be processed after payment confirmation.";
+    } else {
+        msg += "\nWe'll confirm your order within 5-10 minutes.";   // UPDATED
+    }
     if (confirm(msg)) {
         window.open(CONFIG.messengerUrl, '_blank');
         setTimeout(() => {
@@ -349,7 +358,7 @@ window.sendToMessenger = () => {
 };
 
 // ============================================
-// UI HELPERS (toast, modal, etc.)
+// UI HELPERS (toast, modal, GCash, etc.)
 // ============================================
 window.toggleGcashInfo = () => {
     const isGcash = document.getElementById('payment-method').value === 'GCASH';
@@ -380,18 +389,18 @@ function showToast(message, duration = 2000) {
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Load menu first
-    loadProducts(false);  // no toast on initial load
-    
+    // Load menu
+    loadProducts(false);
+
     // Cart button
     document.getElementById('open-cart-btn').onclick = () => {
         document.getElementById('cart-modal').classList.add('active');
     };
-    
-    // Show refresh prompt after 10 seconds, then again after 2 minutes (max 2 times)
+
+    // Gentle refresh banner – appears once, 10 seconds after page loads
     setTimeout(showRefreshPrompt, 10000);
-    
-    // Input validation
+
+    // Input field validation styling
     document.getElementById('customer-name')?.addEventListener('input', function() {
         if (this.value.trim()) this.style.borderColor = '#4CAF50';
     });
@@ -400,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Admin refresh button (Ctrl+Shift+R) – optional, keep if you want
+// Admin shortcut: Ctrl+Shift+R to force refresh (optional)
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey && e.key === 'R') {
         loadProducts(true);
