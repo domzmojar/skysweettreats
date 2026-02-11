@@ -10,30 +10,76 @@ let products = [];
 let cart = [];
 let hasCopied = false;
 let refreshPromptCount = 0;
-const MAX_REFRESH_PROMPTS = 1;   // Show the banner only once per session
+const MAX_REFRESH_PROMPTS = 1;
 
 // ============================================
-// LOAD PRODUCTS (initial + manual refresh)
+// CSV ROW PARSER – handles quoted fields
+// ============================================
+function parseCSVRow(row) {
+    const result = [];
+    let inQuote = false;
+    let currentField = '';
+    for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+        if (char === '"') {
+            inQuote = !inQuote;
+        } else if (char === ',' && !inQuote) {
+            result.push(currentField);
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+    }
+    result.push(currentField);
+    return result;
+}
+
+// ============================================
+// LOAD PRODUCTS – reads unavailable_flavors (column 8)
 // ============================================
 async function loadProducts(showToastOnSuccess = true) {
     try {
         const response = await fetch(`${CONFIG.sheetUrl}&t=${Date.now()}`);
         const data = await response.text();
-        const rows = data.split('\n').slice(1);
+        const lines = data.split('\n');
+        const rows = lines.slice(1).filter(line => line.trim() !== '');
 
-        const newProducts = rows.map(row => {
-            const cols = row.split(',');
+        const allProducts = rows.map(row => {
+            const cols = parseCSVRow(row);
+
+            const id = cols[0]?.trim();
+            const name = cols[1]?.trim();
+            const price = parseFloat(cols[2]) || 0;
+            const image = cols[3]?.trim();
+            const status = cols[4]?.trim();
+            const stock = parseInt(cols[5]) || 0;
+            
+            // Column 6: variant_option (comma-separated flavors)
+            let variant_option_raw = cols[6]?.trim() || '';
+            let flavorArray = variant_option_raw
+                .split(',')
+                .map(f => f.trim())
+                .filter(f => f.length > 0);
+
+            // Column 7: has_flavors (we can derive from flavorArray)
+            const has_flavors = flavorArray.length > 0;
+
+            // ===== NEW: Column 8: unavailable_flavors =====
+            let unavailable_raw = cols[8]?.trim() || '';
+            let unavailableArray = unavailable_raw
+                .split(',')
+                .map(f => f.trim())
+                .filter(f => f.length > 0);
+
             return {
-                id: cols[0]?.trim(),
-                name: cols[1]?.trim(),
-                price: parseFloat(cols[2]) || 0,
-                image: cols[3]?.trim(),
-                status: cols[4]?.trim(),
-                stock: parseInt(cols[5]) || 0
+                id, name, price, image, status, stock,
+                variant_option: flavorArray,
+                unavailable_flavors: unavailableArray, // store as array
+                has_flavors
             };
-        }).filter(p => p.name);
+        }).filter(p => p.id && p.name);
 
-        products = newProducts;
+        products = allProducts;
         renderMenu();
         validateCartAgainstNewStock();
 
@@ -56,100 +102,117 @@ async function loadProducts(showToastOnSuccess = true) {
 }
 
 // ============================================
-// GENTLE REFRESH BANNER (non‑obstructive, top of page)
-// ============================================
-function showRefreshPrompt() {
-    if (refreshPromptCount >= MAX_REFRESH_PROMPTS) return;
-
-    const prompt = document.createElement('div');
-    prompt.className = 'refresh-prompt';
-    prompt.innerHTML = `
-        <div class="refresh-prompt-content">
-            <span class="refresh-icon">🔄</span>
-            <div class="refresh-text">
-                <strong>Stock may have changed?</strong>
-                <small>Check for updates</small>
-            </div>
-            <button class="refresh-now-btn" onclick="handleRefreshClick()">Check Now</button>
-            <button class="refresh-close-btn" onclick="this.closest('.refresh-prompt').remove()">✕</button>
-        </div>
-    `;
-    document.body.prepend(prompt);  // Add at the very top of the page
-    refreshPromptCount++;
-}
-
-window.handleRefreshClick = function() {
-    loadProducts(true);
-    document.querySelectorAll('.refresh-prompt').forEach(el => el.remove());
-    // No second prompt – we show it only once.
-};
-
-// ============================================
-// RENDER MENU (with stock badges and "Add to Cart")
+// RENDER MENU
 // ============================================
 function renderMenu() {
     const grid = document.getElementById('menu-grid');
-    grid.innerHTML = products.map(p => {
-        const isSoldOut = p.stock <= 0;
+    let html = '';
 
-        let stockBadge = '';
-        if (isSoldOut) {
-            stockBadge = `<span class="tag sold-out">⛔ SOLD OUT</span>`;
-        } else if (p.stock <= 5) {
-            stockBadge = `<span class="tag low-stock">⚠️ Only ${p.stock} left!</span>`;
+    products.forEach(prod => {
+        if (prod.has_flavors && prod.variant_option.length > 0) {
+            html += renderFlavorProductCard(prod);
         } else {
-            stockBadge = `<span class="tag available">✅ In Stock</span>`;
+            html += renderSimpleProductCard(prod);
         }
+    });
 
-        return `
-            <div class="product-card ${isSoldOut ? 'sold-out-gray' : ''}" data-product-id="${p.id}">
-                <div class="product-image-container">
-                    <img src="${p.image}" class="product-image" onerror="this.src='https://placehold.co/300x400?text=Sweet'">
-                    <div class="add-to-cart-overlay" onclick="addToCart('${p.id}', event)">
-                        <span>+</span>
-                    </div>
-                </div>
-                <div class="product-details">
-                    <div class="product-info">
-                        <h3>${p.name}</h3>
-                        <div class="stock-badge">${stockBadge}</div>
-                        <span class="price">₱${p.price.toFixed(2)}</span>
-                    </div>
-                    ${isSoldOut ?
-                        `<button class="add-btn disabled" disabled>⛔ Sold Out</button>` :
-                        `<button class="add-btn" onclick="addToCart('${p.id}', event)">➕ Add to Cart</button>`
-                    }
-                </div>
-            </div>`;
-    }).join('');
+    grid.innerHTML = html;
 }
 
 // ============================================
-// CART & ANIMATIONS
+// RENDER SIMPLE PRODUCT (no flavors)
 // ============================================
-window.addToCart = (id, event) => {
+function renderSimpleProductCard(p) {
+    const isSoldOut = p.stock <= 0;
+    let stockBadge = '';
+    if (isSoldOut) {
+        stockBadge = `<span class="tag sold-out">⛔ SOLD OUT</span>`;
+    } else if (p.stock <= 5) {
+        stockBadge = `<span class="tag low-stock">⚠️ Only ${p.stock} left!</span>`;
+    } else {
+        stockBadge = `<span class="tag available">✅ In Stock</span>`;
+    }
+
+    return `
+        <div class="product-card ${isSoldOut ? 'sold-out-gray' : ''}" data-product-id="${p.id}">
+            <div class="product-image-container">
+                <img src="${p.image}" class="product-image" onerror="this.src='https://placehold.co/300x400?text=Sweet'">
+                <div class="add-to-cart-overlay" onclick="addSimpleToCart('${p.id}', event)">
+                    <span>+</span>
+                </div>
+            </div>
+            <div class="product-details">
+                <div class="product-info">
+                    <h3>${p.name}</h3>
+                    <div class="stock-badge">${stockBadge}</div>
+                    <span class="price">₱${p.price.toFixed(2)}</span>
+                </div>
+                ${isSoldOut ?
+                    `<button class="add-btn disabled" disabled>⛔ Sold Out</button>` :
+                    `<button class="add-btn" onclick="addSimpleToCart('${p.id}', event)">➕ Add to Cart</button>`
+                }
+            </div>
+        </div>`;
+}
+
+// ============================================
+// RENDER FLAVOR PRODUCT CARD – with unavailable flavors disabled
+// ============================================
+function renderFlavorProductCard(p) {
+    const isSoldOut = p.stock <= 0;
+    const dropdownId = `flavor-select-${p.id}`;
+
+    // Build dropdown options – mark unavailable flavors as disabled
+    let options = `<option value="" disabled selected class="placeholder-option">🍹 Choose flavor</option>`;
+    
+    p.variant_option.forEach(flavor => {
+        const isUnavailable = p.unavailable_flavors && p.unavailable_flavors.includes(flavor);
+        const disabledAttr = isUnavailable ? 'disabled' : '';
+        const displayText = isUnavailable ? `${flavor} (not available)` : flavor;
+        options += `<option value="${flavor}" ${disabledAttr}>${displayText}</option>`;
+    });
+
+    let stockBadge = '';
+    if (isSoldOut) {
+        stockBadge = `<span class="tag sold-out">⛔ SOLD OUT</span>`;
+    } else if (p.stock <= 5) {
+        stockBadge = `<span class="tag low-stock">⚠️ Only ${p.stock} left!</span>`;
+    } else {
+        stockBadge = `<span class="tag available">✅ In Stock</span>`;
+    }
+
+    return `
+        <div class="product-card product-card-variant ${isSoldOut ? 'sold-out-gray' : ''}" data-product-id="${p.id}">
+            <div class="product-image-container">
+                <img src="${p.image}" class="product-image" onerror="this.src='https://placehold.co/300x400?text=Sweet'">
+            </div>
+            <div class="product-details">
+                <div class="product-info">
+                    <h3>${p.name}</h3>
+                    ${stockBadge}
+                    <span class="price">₱${p.price.toFixed(2)}</span>
+                    
+                    <div class="variant-selector">
+                        <select id="${dropdownId}" class="variant-dropdown" ${isSoldOut ? 'disabled' : ''}>
+                            ${options}
+                        </select>
+                    </div>
+                </div>
+                ${isSoldOut ?
+                    `<button class="add-btn disabled" disabled>⛔ Sold Out</button>` :
+                    `<button class="add-btn" onclick="addFlavorToCart('${p.id}', '${dropdownId}', event)">➕ Add to Cart</button>`
+                }
+            </div>
+        </div>`;
+}
+
+// ============================================
+// ADD TO CART: SIMPLE PRODUCT
+// ============================================
+window.addSimpleToCart = (id, event) => {
     const p = products.find(x => x.id === id);
     if (!p) return showToast("❌ Product not available");
-
-    if (event) {
-        const button = event.currentTarget;
-        const buttonRect = button.getBoundingClientRect();
-        const cartBtn = document.getElementById('open-cart-btn');
-        const cartRect = cartBtn.getBoundingClientRect();
-        const startX = buttonRect.left + buttonRect.width / 2;
-        const startY = buttonRect.top + buttonRect.height / 2;
-        const endX = cartRect.left + cartRect.width / 2;
-        const endY = cartRect.top + cartRect.height / 2;
-
-        for (let i = 0; i < 3; i++) {
-            setTimeout(() => {
-                createFlyingImage(p.image || 'https://placehold.co/300x400?text=Sweet',
-                    startX + Math.random() * 20 - 10,
-                    startY + Math.random() * 20 - 10,
-                    endX, endY);
-            }, i * 100);
-        }
-    }
+    if (event) animateAddToCart(event.currentTarget, p.image);
 
     const existing = cart.find(x => x.id === id);
     if (existing) {
@@ -163,6 +226,81 @@ window.addToCart = (id, event) => {
     showToast(`✅ Added ${p.name}`);
     animateCart();
 };
+
+// ============================================
+// ADD TO CART: FLAVOR PRODUCT
+// ============================================
+window.addFlavorToCart = (productId, dropdownId, event) => {
+    const product = products.find(x => x.id === productId);
+    if (!product) return showToast("❌ Product not available");
+    if (product.stock <= 0) return showToast("⛔ Sold out!");
+
+    const select = document.getElementById(dropdownId);
+    if (!select) return showToast("❌ Error: Flavor selector not found");
+
+    const selectedFlavor = select.value;
+    if (!selectedFlavor) {
+        showToast("⚠️ Please choose a flavor first!", 3000);
+        return;
+    }
+
+    // Extra safety – check if flavor is unavailable (should be disabled, but just in case)
+    if (product.unavailable_flavors && product.unavailable_flavors.includes(selectedFlavor)) {
+        showToast(`❌ ${selectedFlavor} is currently not available`, 3000);
+        return;
+    }
+
+    if (event) animateAddToCart(event.currentTarget, product.image);
+
+    const variantId = `${productId}-${selectedFlavor.replace(/\s+/g, '-')}`;
+    const variantName = `${product.name} (${selectedFlavor})`;
+
+    const existingIndex = cart.findIndex(item => item.id === variantId);
+    if (existingIndex !== -1) {
+        if (cart[existingIndex].qty >= product.stock) {
+            return showToast(`⚠️ Only ${product.stock} ${variantName} available!`);
+        }
+        cart[existingIndex].qty++;
+    } else {
+        cart.push({
+            id: variantId,
+            name: variantName,
+            price: product.price,
+            image: product.image,
+            stock: product.stock,
+            parentId: product.id,
+            flavor: selectedFlavor,
+            qty: 1
+        });
+    }
+
+    updateUI();
+    showToast(`✅ Added ${variantName}`);
+    animateCart();
+};
+
+// ============================================
+// ANIMATIONS (unchanged)
+// ============================================
+function animateAddToCart(button, imageSrc) {
+    if (!button) return;
+    const buttonRect = button.getBoundingClientRect();
+    const cartBtn = document.getElementById('open-cart-btn');
+    const cartRect = cartBtn.getBoundingClientRect();
+    const startX = buttonRect.left + buttonRect.width / 2;
+    const startY = buttonRect.top + buttonRect.height / 2;
+    const endX = cartRect.left + cartRect.width / 2;
+    const endY = cartRect.top + cartRect.height / 2;
+
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            createFlyingImage(imageSrc || 'https://placehold.co/300x400?text=Sweet',
+                startX + Math.random() * 20 - 10,
+                startY + Math.random() * 20 - 10,
+                endX, endY);
+        }, i * 100);
+    }
+}
 
 function createFlyingImage(src, startX, startY, endX, endY) {
     const flyingImg = document.createElement('div');
@@ -196,7 +334,7 @@ function animateCart() {
 }
 
 // ============================================
-// UPDATE CART UI
+// CART UI (unchanged)
 // ============================================
 function updateUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
@@ -225,31 +363,40 @@ function updateUI() {
 
 window.changeQty = (id, delta) => {
     const idx = cart.findIndex(i => i.id === id);
-    const p = products.find(x => x.id === id);
-    if (!p) {
+    if (idx === -1) return;
+    const item = cart[idx];
+    const product = item.parentId
+        ? products.find(p => p.id === item.parentId)
+        : products.find(p => p.id === item.id);
+
+    if (!product) {
         cart.splice(idx, 1);
         updateUI();
         return;
     }
+
     if (delta > 0) {
-        if (cart[idx].qty >= p.stock) return showToast(`⚠️ Only ${p.stock} ${p.name} available!`);
-        cart[idx].qty += delta;
+        if (item.qty >= product.stock) {
+            return showToast(`⚠️ Only ${product.stock} ${item.name} available!`);
+        }
+        item.qty += delta;
     } else {
-        cart[idx].qty += delta;
-        if (cart[idx].qty <= 0) cart.splice(idx, 1);
+        item.qty += delta;
+        if (item.qty <= 0) cart.splice(idx, 1);
     }
     updateUI();
 };
 
 // ============================================
-// VALIDATE CART AGAINST CURRENT STOCK (after refresh)
+// VALIDATE CART (unchanged)
 // ============================================
 function validateCartAgainstNewStock() {
     let changed = false;
     const removed = [];
     for (let i = cart.length - 1; i >= 0; i--) {
         const item = cart[i];
-        const prod = products.find(p => p.id === item.id);
+        const prodId = item.parentId || item.id;
+        const prod = products.find(p => p.id === prodId);
         if (!prod || prod.stock <= 0) {
             removed.push(item.name);
             cart.splice(i, 1);
@@ -257,7 +404,7 @@ function validateCartAgainstNewStock() {
         } else if (item.qty > prod.stock) {
             item.qty = prod.stock;
             changed = true;
-            showToast(`⚠️ ${prod.name} quantity reduced to ${prod.stock}`);
+            showToast(`⚠️ ${item.name} quantity reduced to ${prod.stock}`);
         }
     }
     if (changed) {
@@ -267,7 +414,7 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
-// RESET COPY BUTTON (used when dropdowns change)
+// RESET COPY BUTTON (unchanged)
 // ============================================
 function resetCopyButton() {
     hasCopied = false;
@@ -279,7 +426,7 @@ function resetCopyButton() {
 }
 
 // ============================================
-// CHECKOUT & RECEIPT (with updated 5-10 minutes)
+// CHECKOUT & RECEIPT (unchanged)
 // ============================================
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
@@ -307,7 +454,7 @@ window.copyOrderDetails = () => {
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     let text = `✨ SKY SWEET TREATS ✨\n`;
-    text += `════════════════\n`;   // <── 20 characters – mobile‑friendly
+    text += `════════════════\n`;
 
     text += `📋 **ORDER RECEIPT**\n`;
     text += `📅 ${dateStr}\n`;
@@ -366,33 +513,27 @@ window.sendToMessenger = () => {
     if (pay === 'GCASH') {
         msg += "4. **SEND SCREENSHOT** of your GCash payment\n\nYour order will be processed after payment confirmation.";
     } else {
-        msg += "\nWe'll confirm your order within 5-10 minutes.";   // UPDATED
+        msg += "\nWe'll confirm your order within 5-10 minutes.";
     }
     if (confirm(msg)) {
         window.open(CONFIG.messengerUrl, '_blank');
-        setTimeout(() => {
-            resetCopyButton(); // Reset after 5 seconds (matches existing behavior)
-        }, 5000);
+        setTimeout(() => resetCopyButton(), 5000);
     }
 };
 
 // ============================================
-// UI HELPERS (toast, modal, GCash, etc.)
+// UI HELPERS (toast, modal, GCash)
 // ============================================
 window.toggleGcashInfo = () => {
     const isGcash = document.getElementById('payment-method').value === 'GCASH';
     document.getElementById('gcash-info').style.display = isGcash ? 'block' : 'none';
     if (isGcash) showToast("💳 GCash selected: Don't forget to send payment receipt!", 3000);
-    
-    // The payment‑method change event will also call resetCopyButton, but we keep it here for explicit behaviour
     resetCopyButton();
 };
 
 window.closeModal = (id) => {
     document.getElementById(id).classList.remove('active');
-    if (id === 'checkout-modal') {
-        resetCopyButton(); // Use shared reset function
-    }
+    if (id === 'checkout-modal') resetCopyButton();
 };
 
 window.downloadQR = () => showToast("📱 GCash QR instructions sent to Messenger");
@@ -405,32 +546,47 @@ function showToast(message, duration = 2000) {
 }
 
 // ============================================
+// GENTLE REFRESH BANNER
+// ============================================
+function showRefreshPrompt() {
+    if (refreshPromptCount >= MAX_REFRESH_PROMPTS) return;
+    const prompt = document.createElement('div');
+    prompt.className = 'refresh-prompt';
+    prompt.innerHTML = `
+        <div class="refresh-prompt-content">
+            <span class="refresh-icon">🔄</span>
+            <div class="refresh-text">
+                <strong>Stock may have changed?</strong>
+                <small>Check for updates</small>
+            </div>
+            <button class="refresh-now-btn" onclick="handleRefreshClick()">Check Now</button>
+            <button class="refresh-close-btn" onclick="this.closest('.refresh-prompt').remove()">✕</button>
+        </div>
+    `;
+    document.body.prepend(prompt);
+    refreshPromptCount++;
+}
+
+window.handleRefreshClick = function() {
+    loadProducts(true);
+    document.querySelectorAll('.refresh-prompt').forEach(el => el.remove());
+};
+
+// ============================================
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Load menu
     loadProducts(false);
-
-    // Cart button
     document.getElementById('open-cart-btn').onclick = () => {
         document.getElementById('cart-modal').classList.add('active');
     };
-
-    // Gentle refresh banner – appears once, 10 seconds after page loads
     setTimeout(showRefreshPrompt, 10000);
 
-    // ===== RESET COPY BUTTON WHEN DROPDOWNS CHANGE =====
     const orderTypeSelect = document.getElementById('order-type');
     const paymentMethodSelect = document.getElementById('payment-method');
-    
-    if (orderTypeSelect) {
-        orderTypeSelect.addEventListener('change', resetCopyButton);
-    }
-    if (paymentMethodSelect) {
-        paymentMethodSelect.addEventListener('change', resetCopyButton);
-    }
+    if (orderTypeSelect) orderTypeSelect.addEventListener('change', resetCopyButton);
+    if (paymentMethodSelect) paymentMethodSelect.addEventListener('change', resetCopyButton);
 
-    // Input field validation styling
     document.getElementById('customer-name')?.addEventListener('input', function() {
         if (this.value.trim()) this.style.borderColor = '#4CAF50';
     });
@@ -439,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Admin shortcut: Ctrl+Shift+R to force refresh (optional)
+// Admin shortcut
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey && e.key === 'R') {
         loadProducts(true);
