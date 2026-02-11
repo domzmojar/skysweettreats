@@ -910,35 +910,100 @@ body {
     }
 }
 
-/* ===== REFRESH PROMPT ===== */
+/* ===== REFRESH BANNER (non‑intrusive, top of page) ===== */
 .refresh-prompt {
-    position: fixed;
-    bottom: 100px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 500px;
-    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-    color: white;
-    border-radius: 50px;
+    position: sticky;
+    top: 70px; /* sits just below the sticky header */
+    width: 100%;
+    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+    color: #0D47A1;
+    border-bottom: 2px solid #2196F3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    z-index: 90;
+    animation: slideDown 0.4s ease;
     padding: 0;
-    box-shadow: 0 8px 25px rgba(33, 150, 243, 0.4);
-    z-index: 150;
-    animation: slideUpPrompt 0.4s ease;
-    border: 2px solid #90CAF9;
+    margin: 0;
 }
 
 .refresh-prompt-content {
     display: flex;
     align-items: center;
-    padding: 12px 20px;
-    gap: 12px;
-    position: relative;
+    justify-content: center;
+    gap: 15px;
+    padding: 8px 16px;
+    max-width: 600px;
+    margin: 0 auto;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
 }
 
 .refresh-icon {
-    font-size: 1.8rem;
+    font-size: 1.2rem;
     animation: softPulse 2s infinite;
+}
+
+.refresh-text {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.refresh-text strong {
+    font-weight: 600;
+    margin-right: 5px;
+}
+
+.refresh-text small {
+    color: #1565C0;
+    font-size: 0.8rem;
+}
+
+.refresh-now-btn {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 4px 14px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(33,150,243,0.3);
+    border: 1px solid rgba(255,255,255,0.3);
+    white-space: nowrap;
+}
+
+.refresh-now-btn:hover {
+    background: #1976D2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(33,150,243,0.4);
+}
+
+.refresh-close-btn {
+    background: none;
+    border: none;
+    color: #546E7A;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 5px;
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.refresh-close-btn:hover {
+    color: #0D47A1;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes softPulse {
@@ -947,72 +1012,13 @@ body {
     100% { transform: scale(1); }
 }
 
-.refresh-text {
-    flex-grow: 1;
-}
-
-.refresh-text strong {
-    display: block;
-    font-size: 0.95rem;
-    margin-bottom: 2px;
-}
-
-.refresh-text small {
-    display: block;
-    font-size: 0.75rem;
-    opacity: 0.9;
-}
-
-.refresh-now-btn {
-    background: white;
-    color: #1976D2;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 30px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    white-space: nowrap;
-}
-
-.refresh-now-btn:hover {
-    transform: scale(1.05);
-    background: #f5f5f5;
-}
-
-.refresh-close-btn {
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.8);
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 0 5px;
-    transition: color 0.2s;
-}
-
-.refresh-close-btn:hover {
-    color: white;
-}
-
-@keyframes slideUpPrompt {
-    from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
-}
-
+/* On mobile, stack content */
 @media (max-width: 480px) {
     .refresh-prompt-content {
-        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px;
     }
-    .refresh-now-btn {
-        padding: 6px 12px;
-        font-size: 0.8rem;
+    .refresh-text {
+        justify-content: center;
     }
 }
