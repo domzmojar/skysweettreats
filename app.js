@@ -267,6 +267,18 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
+// RESET COPY BUTTON (used when dropdowns change)
+// ============================================
+function resetCopyButton() {
+    hasCopied = false;
+    const btn = document.getElementById('copy-details-btn');
+    if (btn) {
+        btn.innerHTML = "1. Copy Order Details 📋";
+        btn.style.background = "";
+    }
+}
+
+// ============================================
 // CHECKOUT & RECEIPT (with updated 5-10 minutes)
 // ============================================
 window.openCheckout = () => {
@@ -295,39 +307,48 @@ window.copyOrderDetails = () => {
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     let text = `✨ SKY SWEET TREATS ✨\n`;
-    text += `══════════════════════════════\n\n`;
+    text += `════════════════════\n`;   // <── 20 characters – mobile‑friendly
+
     text += `📋 **ORDER RECEIPT**\n`;
     text += `📅 ${dateStr}\n`;
     text += `⏰ ${timeStr}\n`;
-    text += `🆔 #${Date.now().toString().slice(-6)}\n\n`;
-    text += `══════════════════════════════\n\n`;
+    text += `🆔 #${Date.now().toString().slice(-6)}\n`;
+    text += `════════════════════\n`;
+
     text += `👤 **CUSTOMER DETAILS**\n`;
     text += `• Name: ${name}\n`;
     text += `• Address: ${addr}\n`;
     text += `• Order Type: ${type}\n`;
-    text += `• Payment: ${pay}\n\n`;
-    text += `══════════════════════════════\n\n`;
+    text += `• Payment: ${pay}\n`;
+    text += `════════════════════\n`;
+
     text += `🛒 **ORDER ITEMS**\n`;
-    cart.forEach(i => { text += `• ${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}\n`; });
-    text += `\n══════════════════════════════\n\n`;
+    cart.forEach(i => {
+        text += `• ${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}\n`;
+    });
+    text += `════════════════════\n`;
+
     text += `💰 **PAYMENT SUMMARY**\n`;
     text += `• Subtotal: ₱${total.toFixed(2)}\n`;
-    text += `• Total Amount: ₱${total.toFixed(2)}\n\n`;
+    text += `• Total Amount: ₱${total.toFixed(2)}\n`;
+    text += `════════════════════\n`;
+
     text += `⚠️ **IMPORTANT REMINDERS**\n`;
     if (pay === 'GCASH') {
         text += `\n💳 **GCASH PAYMENT REQUIRED**\n`;
         text += `1. Send payment to: ${CONFIG.businessPhone}\n`;
         text += `2. Account Name: K** M.\n`;
         text += `3. Send SCREENSHOT of payment receipt\n`;
-        text += `4. Order will only be processed after payment confirmation\n\n`;
+        text += `4. Order will only be processed after payment confirmation\n`;
     }
-    text += `📞 **CONTACT INFORMATION**\n`;
+
+    text += `\n📞 **CONTACT INFORMATION**\n`;
     text += `• Messenger: Sky Sweet Treats Page\n`;
     text += `• Phone: ${CONFIG.businessPhone}\n`;
-    text += `• Hours: ${CONFIG.businessHours}\n\n`;
-    text += `══════════════════════════════\n`;
+    text += `• Hours: ${CONFIG.businessHours}\n`;
+    text += `════════════════════\n`;
     text += `Thank you for your order! 🎉\n`;
-    text += `We'll contact you within 5-10 minutes.`;   // UPDATED
+    text += `We'll contact you within 5-10 minutes.`;
 
     navigator.clipboard.writeText(text).then(() => {
         hasCopied = true;
@@ -350,9 +371,7 @@ window.sendToMessenger = () => {
     if (confirm(msg)) {
         window.open(CONFIG.messengerUrl, '_blank');
         setTimeout(() => {
-            document.getElementById('copy-details-btn').innerHTML = "1. Copy Order Details 📋";
-            document.getElementById('copy-details-btn').style.background = "";
-            hasCopied = false;
+            resetCopyButton(); // Reset after 5 seconds (matches existing behavior)
         }, 5000);
     }
 };
@@ -364,15 +383,15 @@ window.toggleGcashInfo = () => {
     const isGcash = document.getElementById('payment-method').value === 'GCASH';
     document.getElementById('gcash-info').style.display = isGcash ? 'block' : 'none';
     if (isGcash) showToast("💳 GCash selected: Don't forget to send payment receipt!", 3000);
+    
+    // The payment‑method change event will also call resetCopyButton, but we keep it here for explicit behaviour
+    resetCopyButton();
 };
 
 window.closeModal = (id) => {
     document.getElementById(id).classList.remove('active');
     if (id === 'checkout-modal') {
-        const btn = document.getElementById('copy-details-btn');
-        btn.innerHTML = "1. Copy Order Details 📋";
-        btn.style.background = "";
-        hasCopied = false;
+        resetCopyButton(); // Use shared reset function
     }
 };
 
@@ -399,6 +418,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Gentle refresh banner – appears once, 10 seconds after page loads
     setTimeout(showRefreshPrompt, 10000);
+
+    // ===== RESET COPY BUTTON WHEN DROPDOWNS CHANGE =====
+    const orderTypeSelect = document.getElementById('order-type');
+    const paymentMethodSelect = document.getElementById('payment-method');
+    
+    if (orderTypeSelect) {
+        orderTypeSelect.addEventListener('change', resetCopyButton);
+    }
+    if (paymentMethodSelect) {
+        paymentMethodSelect.addEventListener('change', resetCopyButton);
+    }
 
     // Input field validation styling
     document.getElementById('customer-name')?.addEventListener('input', function() {
