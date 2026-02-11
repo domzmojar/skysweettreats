@@ -307,31 +307,31 @@ window.copyOrderDetails = () => {
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     let text = `✨ SKY SWEET TREATS ✨\n`;
-    text += `════════════════════\n`;   // <── 20 characters – mobile‑friendly
+    text += `════════════════\n`;   // <── 20 characters – mobile‑friendly
 
     text += `📋 **ORDER RECEIPT**\n`;
     text += `📅 ${dateStr}\n`;
     text += `⏰ ${timeStr}\n`;
     text += `🆔 #${Date.now().toString().slice(-6)}\n`;
-    text += `════════════════════\n`;
+    text += `════════════════\n`;
 
     text += `👤 **CUSTOMER DETAILS**\n`;
     text += `• Name: ${name}\n`;
     text += `• Address: ${addr}\n`;
     text += `• Order Type: ${type}\n`;
     text += `• Payment: ${pay}\n`;
-    text += `════════════════════\n`;
+    text += `════════════════\n`;
 
     text += `🛒 **ORDER ITEMS**\n`;
     cart.forEach(i => {
         text += `• ${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}\n`;
     });
-    text += `════════════════════\n`;
+    text += `════════════════\n`;
 
     text += `💰 **PAYMENT SUMMARY**\n`;
     text += `• Subtotal: ₱${total.toFixed(2)}\n`;
     text += `• Total Amount: ₱${total.toFixed(2)}\n`;
-    text += `════════════════════\n`;
+    text += `════════════════\n`;
 
     text += `⚠️ **IMPORTANT REMINDERS**\n`;
     if (pay === 'GCASH') {
@@ -346,7 +346,7 @@ window.copyOrderDetails = () => {
     text += `• Messenger: Sky Sweet Treats Page\n`;
     text += `• Phone: ${CONFIG.businessPhone}\n`;
     text += `• Hours: ${CONFIG.businessHours}\n`;
-    text += `════════════════════\n`;
+    text += `════════════════\n`;
     text += `Thank you for your order! 🎉\n`;
     text += `We'll contact you within 5-10 minutes.`;
 
