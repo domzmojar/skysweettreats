@@ -538,7 +538,10 @@ window.closeModal = (id) => {
     if (id === 'checkout-modal') resetCopyButton();
 };
 
-window.downloadQR = async function() {
+// ============================================
+// FIXED: DOWNLOAD QR CODE – Direct download, no CORS issues
+// ============================================
+window.downloadQR = function() {
     const qrImage = document.getElementById('qr-image-el');
     if (!qrImage || !qrImage.src) {
         showToast("❌ QR code image not found");
@@ -547,21 +550,23 @@ window.downloadQR = async function() {
 
     showToast("📥 Downloading QR code...", 0);
 
+    // Method 1: Direct download using download attribute (works for same-origin images)
     try {
-        const response = await fetch(qrImage.src);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = qrImage.src;
         a.download = 'gcash-qr.jpg';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        showToast("✅ QR code downloaded!", 2000);
-    } catch (error) {
-        console.error('Download failed:', error);
-        // Fallback: open in new tab (user can long-press to save)
+        
+        // Show success toast after a short delay
+        setTimeout(() => {
+            showToast("✅ QR code downloaded!", 2000);
+        }, 500);
+    } catch (e) {
+        console.error('Direct download failed:', e);
+        
+        // Method 2: Fallback – open in new tab (user can long-press to save)
         window.open(qrImage.src, '_blank');
         showToast("📱 Long‑press to save the QR code", 4000);
     }
