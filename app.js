@@ -36,7 +36,7 @@ function parseCSVRow(row) {
 }
 
 // ============================================
-// LOAD PRODUCTS – matches your column layout
+// LOAD PRODUCTS – your exact column layout
 // ============================================
 async function loadProducts(showToastOnSuccess = true) {
     try {
@@ -54,23 +54,20 @@ async function loadProducts(showToastOnSuccess = true) {
 
             const id = cols[0]?.trim();
             const name = cols[1]?.trim();
-            const category = cols[2]?.trim() || 'Uncategorized';  // <-- Column 2
+            const category = cols[2]?.trim() || 'Uncategorized';
             const price = parseFloat(cols[3]) || 0;
             const image = cols[4]?.trim();
             const status = cols[5]?.trim();
             const stock = parseInt(cols[6]) || 0;
             
-            // Column 7: variant_option (comma-separated flavors)
             let variant_option_raw = cols[7]?.trim() || '';
             let flavorArray = variant_option_raw
                 .split(',')
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
-            // Column 8: has_flavors (we can derive from flavorArray)
             const has_flavors = flavorArray.length > 0;
 
-            // Column 9: unavailable_flavors
             let unavailable_raw = cols[9]?.trim() || '';
             let unavailableArray = unavailable_raw
                 .split(',')
@@ -108,7 +105,8 @@ async function loadProducts(showToastOnSuccess = true) {
 }
 
 // ============================================
-// RENDER CATEGORY TABS + CATEGORY HEADINGS + PRODUCT CARDS
+// RENDER CATEGORY TABS + HEADINGS + PRODUCT CARDS
+// WITH PRECISE SCROLL SPY (direction‑aware)
 // ============================================
 function renderCategoriesAndMenu() {
     // Group products by category
@@ -130,50 +128,173 @@ function renderCategoriesAndMenu() {
     });
     tabsContainer.innerHTML = tabsHtml;
 
-    // Attach click handlers to tabs – with scroll offset
-document.querySelectorAll('.category-tab').forEach(tab => {
-    tab.addEventListener('click', function(e) {
-        const categoryId = this.dataset.category;
-        const heading = document.getElementById(`cat-${categoryId}`);
-        if (heading) {
-            // Calculate sticky header + tabs height
-            const header = document.querySelector('.app-header');
-            const tabs = document.querySelector('.category-tabs');
-            const headerHeight = header ? header.offsetHeight : 0;
-            const tabsHeight = tabs ? tabs.offsetHeight : 0;
-            const offset = headerHeight + tabsHeight + 15; // 15px extra breathing room
-            
-            // Get the heading's position relative to the document
-            const y = heading.getBoundingClientRect().top + window.scrollY - offset;
-            
-            // Smooth scroll to the calculated position
-            window.scrollTo({ top: y, behavior: 'smooth' });
-        }
-        // Update active state
-        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
+    // Store mapping between category ID and tab element
+    const tabMap = new Map();
+    document.querySelectorAll('.category-tab').forEach(tab => {
+        const categoryId = tab.dataset.category;
+        tabMap.set(categoryId, tab);
     });
-});
 
-    // Render menu grid with category headings + product cards
+    // Click handler – smooth scroll to heading with dynamic offset
+    document.querySelectorAll('.category-tab').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            const categoryId = this.dataset.category;
+            const heading = document.getElementById(`cat-${categoryId}`);
+            if (heading) {
+                const header = document.querySelector('.app-header');
+                const tabs = document.querySelector('.category-tabs');
+                const headerHeight = header ? header.offsetHeight : 0;
+                const tabsHeight = tabs ? tabs.offsetHeight : 0;
+                const offset = headerHeight + tabsHeight + 15;
+                
+                const y = heading.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+            document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            window.lastActiveCategory = categoryId;
+        });
+    });
+
+    // Render menu grid
     const grid = document.getElementById('menu-grid');
     let gridHtml = '';
+
+    // Store category boundaries for scroll spy
+    const categoryBoundaries = [];
 
     categoryMap.forEach((productsInCat, category) => {
         const safeId = category.replace(/\s+/g, '-').toLowerCase();
         gridHtml += `<div id="cat-${safeId}" class="category-heading">${category}</div>`;
         
-        // Render each product in this category
-        productsInCat.forEach(prod => {
+        productsInCat.forEach((prod, index) => {
             if (prod.has_flavors && prod.variant_option.length > 0) {
                 gridHtml += renderFlavorProductCard(prod);
             } else {
                 gridHtml += renderSimpleProductCard(prod);
             }
+            // If this is the last product in the category, add a hidden marker
+            if (index === productsInCat.length - 1) {
+                gridHtml += `<div id="end-${safeId}" class="category-end" style="height:0; opacity:0;"></div>`;
+            }
         });
     });
 
     grid.innerHTML = gridHtml;
+
+    // ---- Build category boundaries for scroll spy ----
+    categoryBoundaries.length = 0;
+    categoryMap.forEach((_, category) => {
+        const safeId = category.replace(/\s+/g, '-').toLowerCase();
+        const heading = document.getElementById(`cat-${safeId}`);
+        const endMarker = document.getElementById(`end-${safeId}`);
+        if (heading && endMarker) {
+            categoryBoundaries.push({
+                id: safeId,
+                name: category,
+                headingEl: heading,
+                endEl: endMarker,
+                tab: tabMap.get(safeId)
+            });
+        }
+    });
+
+    // ---- Scroll Spy with direction detection ----
+    let lastScrollY = window.scrollY;
+    let scrollDirection = 'down';
+    let activeCategoryId = null;
+
+    function updateActiveTab(categoryId) {
+        if (!categoryId) return;
+        if (activeCategoryId === categoryId) return;
+        const tab = tabMap.get(categoryId);
+        if (tab) {
+            document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeCategoryId = categoryId;
+            window.lastActiveCategory = categoryId;
+        }
+    }
+
+    function onScroll() {
+        const currentScrollY = window.scrollY;
+        scrollDirection = currentScrollY > lastScrollY ? 'down' : 'up';
+        lastScrollY = currentScrollY;
+
+        const header = document.querySelector('.app-header');
+        const tabs = document.querySelector('.category-tabs');
+        const headerHeight = header ? header.offsetHeight : 0;
+        const tabsHeight = tabs ? tabs.offsetHeight : 0;
+        const stickyBottom = headerHeight + tabsHeight; // bottom edge of sticky area
+
+        if (scrollDirection === 'down') {
+            // Scrolling down: activate when heading top is just below sticky area
+            for (let i = categoryBoundaries.length - 1; i >= 0; i--) { // check from bottom up
+                const boundary = categoryBoundaries[i];
+                const headingTop = boundary.headingEl.getBoundingClientRect().top;
+                if (headingTop <= stickyBottom + 10) { // 10px tolerance
+                    updateActiveTab(boundary.id);
+                    break;
+                }
+            }
+        } else {
+            // Scrolling up: activate when the bottom of the last product starts to appear at the viewport bottom
+            for (let i = 0; i < categoryBoundaries.length; i++) { // check from top down
+                const boundary = categoryBoundaries[i];
+                const endBottom = boundary.endEl.getBoundingClientRect().bottom;
+                const viewportBottom = window.innerHeight;
+                // Condition: bottom of last product is within 10px below or above the viewport bottom
+                // This means it's just starting to peek into the viewport from below
+                if (endBottom >= viewportBottom - 10 && endBottom <= viewportBottom + 10) {
+                    updateActiveTab(boundary.id);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Throttle scroll events for performance
+    let ticking = false;
+    const scrollHandler = function() {
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                onScroll();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    };
+
+    // Remove old listener if it exists (to avoid duplicates on re-render)
+    if (window.scrollListenerAttached) {
+        window.removeEventListener('scroll', window.scrollHandler);
+    }
+    window.scrollHandler = scrollHandler;
+    window.scrollListenerAttached = true;
+    window.addEventListener('scroll', window.scrollHandler);
+
+    // Set initial active tab based on current scroll position
+    setTimeout(() => {
+        const header = document.querySelector('.app-header');
+        const tabs = document.querySelector('.category-tabs');
+        const headerHeight = header ? header.offsetHeight : 0;
+        const tabsHeight = tabs ? tabs.offsetHeight : 0;
+        const stickyBottom = headerHeight + tabsHeight;
+        
+        // Find the first category whose heading is at or above the sticky bottom
+        for (let i = categoryBoundaries.length - 1; i >= 0; i--) {
+            const boundary = categoryBoundaries[i];
+            const headingTop = boundary.headingEl.getBoundingClientRect().top;
+            if (headingTop <= stickyBottom + 10) {
+                updateActiveTab(boundary.id);
+                break;
+            }
+        }
+        // If none found, activate the first category
+        if (!activeCategoryId && categoryBoundaries.length > 0) {
+            updateActiveTab(categoryBoundaries[0].id);
+        }
+    }, 100);
 }
 
 // ============================================
@@ -331,7 +452,7 @@ window.addFlavorToCart = (productId, dropdownId, event) => {
 };
 
 // ============================================
-// ANIMATION HELPERS (unchanged)
+// ANIMATION HELPERS
 // ============================================
 function animateAddToCart(button, imageSrc) {
     if (!button) return;
@@ -385,7 +506,7 @@ function animateCart() {
 }
 
 // ============================================
-// UPDATE CART UI (unchanged)
+// UPDATE CART UI
 // ============================================
 function updateUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
@@ -439,7 +560,7 @@ window.changeQty = (id, delta) => {
 };
 
 // ============================================
-// VALIDATE CART AGAINST CURRENT STOCK (unchanged)
+// VALIDATE CART AGAINST CURRENT STOCK
 // ============================================
 function validateCartAgainstNewStock() {
     let changed = false;
@@ -465,7 +586,7 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
-// RESET COPY BUTTON (unchanged)
+// RESET COPY BUTTON
 // ============================================
 function resetCopyButton() {
     hasCopied = false;
@@ -477,7 +598,7 @@ function resetCopyButton() {
 }
 
 // ============================================
-// CHECKOUT & RECEIPT (unchanged)
+// CHECKOUT & RECEIPT
 // ============================================
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
@@ -573,7 +694,7 @@ window.sendToMessenger = () => {
 };
 
 // ============================================
-// UI HELPERS (toast, modal, GCash)
+// UI HELPERS
 // ============================================
 window.toggleGcashInfo = () => {
     const isGcash = document.getElementById('payment-method').value === 'GCASH';
@@ -652,6 +773,11 @@ function showRefreshPrompt() {
 window.handleRefreshClick = function() {
     loadProducts(true);
     document.querySelectorAll('.refresh-prompt').forEach(el => el.remove());
+};
+
+window.forceStockRefresh = function() {
+    loadProducts(true);
+    showToast("🔄 Manual refresh triggered");
 };
 
 // ============================================
