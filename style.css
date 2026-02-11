@@ -910,16 +910,17 @@ body {
     }
 }
 
-/* ===== REFRESH BANNER (non‑intrusive, top of page) ===== */
+/* ===== REFRESH BANNER – TOP FIXED, VISIBLE, NON‑OBSTRUCTIVE ===== */
 .refresh-prompt {
-    position: sticky;
-    top: 70px; /* sits just below the sticky header */
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
     color: #0D47A1;
     border-bottom: 2px solid #2196F3;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    z-index: 90;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 200;        /* sits above the sticky header (z-index 10) */
     animation: slideDown 0.4s ease;
     padding: 0;
     margin: 0;
@@ -930,10 +931,10 @@ body {
     align-items: center;
     justify-content: center;
     gap: 15px;
-    padding: 8px 16px;
+    padding: 12px 16px;
     max-width: 600px;
     margin: 0 auto;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     flex-wrap: wrap;
 }
 
@@ -963,10 +964,10 @@ body {
     background: #2196F3;
     color: white;
     border: none;
-    padding: 4px 14px;
+    padding: 6px 16px;
     border-radius: 30px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 2px 5px rgba(33,150,243,0.3);
@@ -995,10 +996,11 @@ body {
     color: #0D47A1;
 }
 
+/* Slide down animation */
 @keyframes slideDown {
     from {
         opacity: 0;
-        transform: translateY(-20px);
+        transform: translateY(-100%);
     }
     to {
         opacity: 1;
@@ -1012,13 +1014,15 @@ body {
     100% { transform: scale(1); }
 }
 
-/* On mobile, stack content */
+/* On small screens, make the banner more compact */
 @media (max-width: 480px) {
     .refresh-prompt-content {
         gap: 8px;
-        padding: 8px 12px;
+        padding: 10px 12px;
+        font-size: 0.85rem;
     }
-    .refresh-text {
-        justify-content: center;
+    .refresh-now-btn {
+        padding: 4px 12px;
+        font-size: 0.8rem;
     }
 }
