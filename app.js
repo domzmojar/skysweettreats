@@ -36,7 +36,7 @@ function parseCSVRow(row) {
 }
 
 // ============================================
-// LOAD PRODUCTS – reads unavailable_flavors (column 8)
+// LOAD PRODUCTS – matches your column layout
 // ============================================
 async function loadProducts(showToastOnSuccess = true) {
     try {
@@ -48,32 +48,37 @@ async function loadProducts(showToastOnSuccess = true) {
         const allProducts = rows.map(row => {
             const cols = parseCSVRow(row);
 
+            // YOUR COLUMN ORDER:
+            // 0:id, 1:name, 2:category, 3:price, 4:image, 5:status, 6:stock,
+            // 7:variant_option, 8:has_flavors, 9:unavailable_flavors
+
             const id = cols[0]?.trim();
             const name = cols[1]?.trim();
-            const price = parseFloat(cols[2]) || 0;
-            const image = cols[3]?.trim();
-            const status = cols[4]?.trim();
-            const stock = parseInt(cols[5]) || 0;
+            const category = cols[2]?.trim() || 'Uncategorized';  // <-- Column 2
+            const price = parseFloat(cols[3]) || 0;
+            const image = cols[4]?.trim();
+            const status = cols[5]?.trim();
+            const stock = parseInt(cols[6]) || 0;
             
-            // Column 6: variant_option (comma-separated flavors)
-            let variant_option_raw = cols[6]?.trim() || '';
+            // Column 7: variant_option (comma-separated flavors)
+            let variant_option_raw = cols[7]?.trim() || '';
             let flavorArray = variant_option_raw
                 .split(',')
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
-            // Column 7: has_flavors (we can derive from flavorArray)
+            // Column 8: has_flavors (we can derive from flavorArray)
             const has_flavors = flavorArray.length > 0;
 
-            // Column 8: unavailable_flavors (comma-separated)
-            let unavailable_raw = cols[8]?.trim() || '';
+            // Column 9: unavailable_flavors
+            let unavailable_raw = cols[9]?.trim() || '';
             let unavailableArray = unavailable_raw
                 .split(',')
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
             return {
-                id, name, price, image, status, stock,
+                id, name, category, price, image, status, stock,
                 variant_option: flavorArray,
                 unavailable_flavors: unavailableArray,
                 has_flavors
@@ -81,7 +86,7 @@ async function loadProducts(showToastOnSuccess = true) {
         }).filter(p => p.id && p.name);
 
         products = allProducts;
-        renderMenu();
+        renderCategoriesAndMenu();
         validateCartAgainstNewStock();
 
         if (showToastOnSuccess) {
@@ -103,25 +108,76 @@ async function loadProducts(showToastOnSuccess = true) {
 }
 
 // ============================================
-// RENDER MENU
+// RENDER CATEGORY TABS + CATEGORY HEADINGS + PRODUCT CARDS
 // ============================================
-function renderMenu() {
-    const grid = document.getElementById('menu-grid');
-    let html = '';
-
+function renderCategoriesAndMenu() {
+    // Group products by category
+    const categoryMap = new Map();
     products.forEach(prod => {
-        if (prod.has_flavors && prod.variant_option.length > 0) {
-            html += renderFlavorProductCard(prod);
-        } else {
-            html += renderSimpleProductCard(prod);
+        const cat = prod.category || 'Uncategorized';
+        if (!categoryMap.has(cat)) {
+            categoryMap.set(cat, []);
         }
+        categoryMap.get(cat).push(prod);
     });
 
-    grid.innerHTML = html;
+    // Render sticky tabs
+    const tabsContainer = document.getElementById('category-tabs');
+    let tabsHtml = '';
+    categoryMap.forEach((_, category) => {
+        const safeId = category.replace(/\s+/g, '-').toLowerCase();
+        tabsHtml += `<button class="category-tab" data-category="${safeId}">${category}</button>`;
+    });
+    tabsContainer.innerHTML = tabsHtml;
+
+    // Attach click handlers to tabs – with scroll offset
+document.querySelectorAll('.category-tab').forEach(tab => {
+    tab.addEventListener('click', function(e) {
+        const categoryId = this.dataset.category;
+        const heading = document.getElementById(`cat-${categoryId}`);
+        if (heading) {
+            // Calculate sticky header + tabs height
+            const header = document.querySelector('.app-header');
+            const tabs = document.querySelector('.category-tabs');
+            const headerHeight = header ? header.offsetHeight : 0;
+            const tabsHeight = tabs ? tabs.offsetHeight : 0;
+            const offset = headerHeight + tabsHeight + 15; // 15px extra breathing room
+            
+            // Get the heading's position relative to the document
+            const y = heading.getBoundingClientRect().top + window.scrollY - offset;
+            
+            // Smooth scroll to the calculated position
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+        // Update active state
+        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+    });
+});
+
+    // Render menu grid with category headings + product cards
+    const grid = document.getElementById('menu-grid');
+    let gridHtml = '';
+
+    categoryMap.forEach((productsInCat, category) => {
+        const safeId = category.replace(/\s+/g, '-').toLowerCase();
+        gridHtml += `<div id="cat-${safeId}" class="category-heading">${category}</div>`;
+        
+        // Render each product in this category
+        productsInCat.forEach(prod => {
+            if (prod.has_flavors && prod.variant_option.length > 0) {
+                gridHtml += renderFlavorProductCard(prod);
+            } else {
+                gridHtml += renderSimpleProductCard(prod);
+            }
+        });
+    });
+
+    grid.innerHTML = gridHtml;
 }
 
 // ============================================
-// RENDER SIMPLE PRODUCT (no flavors)
+// RENDER SIMPLE PRODUCT (no flavors) – NO OVERLAY
 // ============================================
 function renderSimpleProductCard(p) {
     const isSoldOut = p.stock <= 0;
@@ -138,9 +194,6 @@ function renderSimpleProductCard(p) {
         <div class="product-card ${isSoldOut ? 'sold-out-gray' : ''}" data-product-id="${p.id}">
             <div class="product-image-container">
                 <img src="${p.image}" class="product-image" onerror="this.src='https://placehold.co/300x400?text=Sweet'">
-                <div class="add-to-cart-overlay" onclick="addSimpleToCart('${p.id}', event)">
-                    <span>+</span>
-                </div>
             </div>
             <div class="product-details">
                 <div class="product-info">
@@ -157,16 +210,13 @@ function renderSimpleProductCard(p) {
 }
 
 // ============================================
-// RENDER FLAVOR PRODUCT CARD – with disabled unavailable flavors
+// RENDER FLAVOR PRODUCT CARD – NO OVERLAY
 // ============================================
 function renderFlavorProductCard(p) {
     const isSoldOut = p.stock <= 0;
     const dropdownId = `flavor-select-${p.id}`;
 
-    // Build dropdown options – mark unavailable flavors as disabled
-    // Placeholder gets a special class for custom styling
     let options = `<option value="" disabled selected class="placeholder-option">🍹 Choose flavor</option>`;
-    
     p.variant_option.forEach(flavor => {
         const isUnavailable = p.unavailable_flavors && p.unavailable_flavors.includes(flavor);
         const disabledAttr = isUnavailable ? 'disabled' : '';
@@ -246,7 +296,6 @@ window.addFlavorToCart = (productId, dropdownId, event) => {
         return;
     }
 
-    // Extra safety – check if flavor is unavailable
     if (product.unavailable_flavors && product.unavailable_flavors.includes(selectedFlavor)) {
         showToast(`❌ ${selectedFlavor} is currently not available`, 3000);
         return;
@@ -282,7 +331,7 @@ window.addFlavorToCart = (productId, dropdownId, event) => {
 };
 
 // ============================================
-// ANIMATION HELPERS
+// ANIMATION HELPERS (unchanged)
 // ============================================
 function animateAddToCart(button, imageSrc) {
     if (!button) return;
@@ -336,7 +385,7 @@ function animateCart() {
 }
 
 // ============================================
-// UPDATE CART UI
+// UPDATE CART UI (unchanged)
 // ============================================
 function updateUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
@@ -390,7 +439,7 @@ window.changeQty = (id, delta) => {
 };
 
 // ============================================
-// VALIDATE CART AGAINST CURRENT STOCK
+// VALIDATE CART AGAINST CURRENT STOCK (unchanged)
 // ============================================
 function validateCartAgainstNewStock() {
     let changed = false;
@@ -416,7 +465,7 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
-// RESET COPY BUTTON
+// RESET COPY BUTTON (unchanged)
 // ============================================
 function resetCopyButton() {
     hasCopied = false;
@@ -428,7 +477,7 @@ function resetCopyButton() {
 }
 
 // ============================================
-// CHECKOUT & RECEIPT
+// CHECKOUT & RECEIPT (unchanged)
 // ============================================
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
@@ -538,9 +587,6 @@ window.closeModal = (id) => {
     if (id === 'checkout-modal') resetCopyButton();
 };
 
-// ============================================
-// FIXED: DOWNLOAD QR CODE – Direct download, no CORS issues
-// ============================================
 window.downloadQR = function() {
     const qrImage = document.getElementById('qr-image-el');
     if (!qrImage || !qrImage.src) {
@@ -550,7 +596,6 @@ window.downloadQR = function() {
 
     showToast("📥 Downloading QR code...", 0);
 
-    // Method 1: Direct download using download attribute (works for same-origin images)
     try {
         const a = document.createElement('a');
         a.href = qrImage.src;
@@ -558,15 +603,11 @@ window.downloadQR = function() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        
-        // Show success toast after a short delay
         setTimeout(() => {
             showToast("✅ QR code downloaded!", 2000);
         }, 500);
     } catch (e) {
-        console.error('Direct download failed:', e);
-        
-        // Method 2: Fallback – open in new tab (user can long-press to save)
+        console.error('Download failed:', e);
         window.open(qrImage.src, '_blank');
         showToast("📱 Long‑press to save the QR code", 4000);
     }
@@ -577,10 +618,8 @@ function showToast(message, duration = 2000) {
     toast.textContent = message;
     toast.classList.add('show');
     
-    // Clear any existing timeout
     if (window.toastTimeout) clearTimeout(window.toastTimeout);
     
-    // Only auto-hide if duration > 0
     if (duration > 0) {
         window.toastTimeout = setTimeout(() => {
             toast.classList.remove('show');
