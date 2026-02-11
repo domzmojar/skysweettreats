@@ -11,6 +11,7 @@ let cart = [];
 let hasCopied = false;
 let refreshPromptCount = 0;
 const MAX_REFRESH_PROMPTS = 1;
+let toastTimeout = null;
 
 // ============================================
 // CSV ROW PARSER – handles quoted fields
@@ -64,7 +65,7 @@ async function loadProducts(showToastOnSuccess = true) {
             // Column 7: has_flavors (we can derive from flavorArray)
             const has_flavors = flavorArray.length > 0;
 
-            // ===== NEW: Column 8: unavailable_flavors =====
+            // Column 8: unavailable_flavors (comma-separated)
             let unavailable_raw = cols[8]?.trim() || '';
             let unavailableArray = unavailable_raw
                 .split(',')
@@ -74,7 +75,7 @@ async function loadProducts(showToastOnSuccess = true) {
             return {
                 id, name, price, image, status, stock,
                 variant_option: flavorArray,
-                unavailable_flavors: unavailableArray, // store as array
+                unavailable_flavors: unavailableArray,
                 has_flavors
             };
         }).filter(p => p.id && p.name);
@@ -156,13 +157,14 @@ function renderSimpleProductCard(p) {
 }
 
 // ============================================
-// RENDER FLAVOR PRODUCT CARD – with unavailable flavors disabled
+// RENDER FLAVOR PRODUCT CARD – with disabled unavailable flavors
 // ============================================
 function renderFlavorProductCard(p) {
     const isSoldOut = p.stock <= 0;
     const dropdownId = `flavor-select-${p.id}`;
 
     // Build dropdown options – mark unavailable flavors as disabled
+    // Placeholder gets a special class for custom styling
     let options = `<option value="" disabled selected class="placeholder-option">🍹 Choose flavor</option>`;
     
     p.variant_option.forEach(flavor => {
@@ -193,7 +195,7 @@ function renderFlavorProductCard(p) {
                     <span class="price">₱${p.price.toFixed(2)}</span>
                     
                     <div class="variant-selector">
-                        <select id="${dropdownId}" class="variant-dropdown" ${isSoldOut ? 'disabled' : ''}>
+                        <select id="${dropdownId}" class="variant-dropdown" ${isSoldOut ? 'disabled' : ''} required>
                             ${options}
                         </select>
                     </div>
@@ -244,7 +246,7 @@ window.addFlavorToCart = (productId, dropdownId, event) => {
         return;
     }
 
-    // Extra safety – check if flavor is unavailable (should be disabled, but just in case)
+    // Extra safety – check if flavor is unavailable
     if (product.unavailable_flavors && product.unavailable_flavors.includes(selectedFlavor)) {
         showToast(`❌ ${selectedFlavor} is currently not available`, 3000);
         return;
@@ -280,7 +282,7 @@ window.addFlavorToCart = (productId, dropdownId, event) => {
 };
 
 // ============================================
-// ANIMATIONS (unchanged)
+// ANIMATION HELPERS
 // ============================================
 function animateAddToCart(button, imageSrc) {
     if (!button) return;
@@ -334,7 +336,7 @@ function animateCart() {
 }
 
 // ============================================
-// CART UI (unchanged)
+// UPDATE CART UI
 // ============================================
 function updateUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
@@ -388,7 +390,7 @@ window.changeQty = (id, delta) => {
 };
 
 // ============================================
-// VALIDATE CART (unchanged)
+// VALIDATE CART AGAINST CURRENT STOCK
 // ============================================
 function validateCartAgainstNewStock() {
     let changed = false;
@@ -414,7 +416,7 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
-// RESET COPY BUTTON (unchanged)
+// RESET COPY BUTTON
 // ============================================
 function resetCopyButton() {
     hasCopied = false;
@@ -426,7 +428,7 @@ function resetCopyButton() {
 }
 
 // ============================================
-// CHECKOUT & RECEIPT (unchanged)
+// CHECKOUT & RECEIPT
 // ============================================
 window.openCheckout = () => {
     const name = document.getElementById('customer-name').value.trim();
@@ -536,13 +538,49 @@ window.closeModal = (id) => {
     if (id === 'checkout-modal') resetCopyButton();
 };
 
-window.downloadQR = () => showToast("📱 GCash QR instructions sent to Messenger");
+window.downloadQR = async function() {
+    const qrImage = document.getElementById('qr-image-el');
+    if (!qrImage || !qrImage.src) {
+        showToast("❌ QR code image not found");
+        return;
+    }
+
+    showToast("📥 Downloading QR code...", 0);
+
+    try {
+        const response = await fetch(qrImage.src);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gcash-qr.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        showToast("✅ QR code downloaded!", 2000);
+    } catch (error) {
+        console.error('Download failed:', error);
+        // Fallback: open in new tab (user can long-press to save)
+        window.open(qrImage.src, '_blank');
+        showToast("📱 Long‑press to save the QR code", 4000);
+    }
+};
 
 function showToast(message, duration = 2000) {
     const toast = document.getElementById('toast');
     toast.textContent = message;
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), duration);
+    
+    // Clear any existing timeout
+    if (window.toastTimeout) clearTimeout(window.toastTimeout);
+    
+    // Only auto-hide if duration > 0
+    if (duration > 0) {
+        window.toastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    }
 }
 
 // ============================================
