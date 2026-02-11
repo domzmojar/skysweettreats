@@ -6,99 +6,144 @@
     <title>Sky Sweet Treats | Online Order</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="images/logo.jpg">
 </head>
 <body>
-
+    <!-- Header -->
     <header class="app-header">
         <div class="container header-flex">
-            <img src="images/logo.jpg" alt="Logo" class="brand-logo" onerror="this.src='https://placehold.co/100x100?text=Sky+Sweet'">
+            <img src="images/logo.jpg" alt="Sky Sweet Treats Logo" class="brand-logo" onerror="this.src='https://placehold.co/100x100?text=Sweet'">
             <div class="brand-text">
                 <h1>Sky Sweet Treats</h1>
-                <p>Make your day sweet with Sky Sweet Treats! Sky ang limit!</p>
+                <p>Make your day sweet with Sky Sweet Treats! Sky ang limit! 🍰✨</p>
             </div>
         </div>
     </header>
 
+    <!-- Main Menu -->
     <main class="container">
-        <div id="menu-grid" class="menu-grid"></div>
+        <div id="menu-grid" class="menu-grid">
+            <!-- Menu items will be loaded here -->
+        </div>
     </main>
 
+    <!-- Floating Cart Button -->
     <div class="floating-cart" id="open-cart-btn">
         <div class="cart-icon">🛒 <span id="cart-count" class="badge">0</span></div>
         <div class="cart-total">Total: <span id="float-total">₱0.00</span></div>
+        <!-- Last checked time will be added here -->
     </div>
 
+    <!-- Cart Modal -->
     <div id="cart-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Your Order</h2>
+                <h2>🛒 Your Order Cart</h2>
                 <button onclick="closeModal('cart-modal')" class="close-btn">&times;</button>
             </div>
             
-            <div id="cart-items" class="cart-items-container"></div>
+            <div id="cart-items" class="cart-items-container">
+                <!-- Cart items will be inserted here -->
+            </div>
 
             <div class="customer-details">
-                <h3>Delivery Details</h3>
-                <div class="form-group"><label>Full Name</label><input type="text" id="customer-name" placeholder="Juan Dela Cruz"></div>
-                <div class="form-group"><label>Address / Landmark</label><textarea id="customer-address" placeholder="Brgy, Street, House No."></textarea></div>
+                <h3>📝 Delivery Details</h3>
+                <div class="form-group">
+                    <label>👤 Full Name</label>
+                    <input type="text" id="customer-name" placeholder="Juan Dela Cruz" required>
+                </div>
+                <div class="form-group">
+                    <label>📍 Address / Landmark</label>
+                    <textarea id="customer-address" placeholder="Brgy, Street, House No., City" rows="3" required></textarea>
+                </div>
             </div>
             
             <div class="modal-footer">
-                <div class="modal-total-display">Total: <span id="modal-total">₱0.00</span></div>
-                <button onclick="openCheckout()" class="btn-primary">Next: Payment & Delivery ➔</button>
-                <span class="back-to-menu-link" onclick="closeModal('cart-modal')">Add more items</span>
+                <div class="modal-total-display">Total Amount: <span id="modal-total">₱0.00</span></div>
+                <button onclick="openCheckout()" class="btn-primary">➡️ Next: Payment & Delivery</button>
+                <span class="back-to-menu-link" onclick="closeModal('cart-modal')">➕ Add more items</span>
             </div>
         </div>
     </div>
 
+    <!-- Checkout Modal -->
     <div id="checkout-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Checkout Details</h2>
+                <h2>💳 Checkout Details</h2>
                 <button onclick="closeModal('checkout-modal')" class="close-btn">&times;</button>
             </div>
+            
             <div class="checkout-body">
                 <div class="option-group">
-                    <label>Order Type:</label>
+                    <label>🚚 Order Type:</label>
                     <select id="order-type">
-                        <option value="Delivery">Delivery</option>
-                        <option value="Pick-Up">Pick-Up</option>
+                        <option value="Delivery">🏠 Delivery</option>
+                        <option value="Pick-Up">🚗 Pick-Up</option>
                     </select>
                 </div>
 
                 <div class="option-group">
-                    <label>Mode of Payment:</label>
+                    <label>💳 Mode of Payment:</label>
                     <select id="payment-method" onchange="toggleGcashInfo()">
-                        <option value="COD">COD (Cash on Delivery)</option>
-                        <option value="GCASH">GCash</option>
+                        <option value="COD">💰 COD (Cash on Delivery)</option>
+                        <option value="GCASH">📱 GCash</option>
                     </select>
                 </div>
 
+                <!-- GCash Payment Info -->
                 <div id="gcash-info" class="payment-info-box" style="display:none;">
-                    <p><strong>Gcash:</strong> 09264569430<br><strong>Name:</strong> K** M.</p>
-                    <img src="images/qr-pay.jpg" id="qr-image-el" class="qr-image" alt="GCash QR">
+                    <h4>📱 GCash Payment Instructions</h4>
+                    <p><strong>💳 GCash Number:</strong> 09264569430<br>
+                       <strong>👤 Account Name:</strong> K** M.</p>
+                    
+                    <img src="images/qr-pay.jpg" id="qr-image-el" class="qr-image" alt="GCash QR Code" onerror="this.style.display='none'">
+                    
                     <button onclick="downloadQR()" class="btn-download-qr">📥 Download QR Code</button>
+                    
                     <div class="receipt-reminder">
-                        ⚠️ <strong>Final Step:</strong> After placing your order, please send your <strong>GCash Receipt</strong> to our Messenger!
+                        ⚠️ <strong>Important Reminder:</strong><br>
+                        1. Send payment to the number above<br>
+                        2. Take a screenshot of your payment receipt<br>
+                        3. <strong>SEND THE SCREENSHOT</strong> when you send your order<br>
+                        4. Order will only be processed after payment confirmation
                     </div>
                 </div>
 
+                <!-- Order Summary -->
                 <div class="order-summary-box">
-                    <strong>Final Order Summary:</strong>
-                    <div id="final-summary-text"></div>
+                    <strong>📋 Final Order Summary:</strong>
+                    <div id="final-summary-text">
+                        <!-- Order items will be inserted here -->
+                    </div>
                 </div>
             </div>
+            
             <div class="modal-footer">
-                <button id="copy-details-btn" onclick="copyOrderDetails()" class="btn-secondary">1. Copy Order Details 📋</button>
-                <button id="messenger-btn" onclick="sendToMessenger()" class="btn-primary" style="margin-top:10px; background:#0084FF;">2. Paste Order Details via Messenger 🚀</button>
-                <span class="back-to-menu-link" onclick="closeModal('checkout-modal')">Go back to menu</span>
+                <button id="copy-details-btn" onclick="copyOrderDetails()" class="btn-secondary">
+                    📋 1. Copy Order Details
+                </button>
+                
+                <button id="messenger-btn" onclick="sendToMessenger()" class="btn-primary" style="margin-top:12px; background:#0084FF;">
+                    📱 2. Send via Messenger
+                </button>
+                
+                <span class="back-to-menu-link" onclick="closeModal('checkout-modal')">
+                    ↩️ Go back to menu
+                </span>
             </div>
         </div>
     </div>
 
+    <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
+
+    <!-- Admin Refresh Button (Hidden by default) -->
+    <button class="admin-refresh-btn" onclick="forceStockRefresh()" title="Refresh Stock">
+        🔄
+    </button>
 
     <script src="app.js"></script>
 </body>
