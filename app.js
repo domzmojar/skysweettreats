@@ -13,6 +13,95 @@ let refreshPromptCount = 0;
 const MAX_REFRESH_PROMPTS = 1;
 let toastTimeout = null;
 
+// Shipping state
+let selectedShippingAddress = '';
+let selectedShippingFee = 0;
+
+// ============================================
+// SHIPPING ADDRESSES – sorted alphabetically by second word
+// ============================================
+const SHIPPING_OPTIONS = [
+    { name: "Proper Tamlang", fee: 10.00 },
+    { name: "Sitio Balud", fee: 15.00 },
+    { name: "Sitio Gequilan", fee: 20.00 },
+    { name: "Sitio Quartel", fee: 20.00 },
+    { name: "Sitio Minaongca", fee: 30.00 },
+    { name: "Sitio Alangahag", fee: 30.00 },
+    { name: "Sitio Bongabong", fee: 30.00 },
+    { name: "Brgy. Binaguiohan", fee: 30.00 },
+    { name: "Sitio Carbon", fee: 30.00 },
+    { name: "Sitio Balaring", fee: 50.00 },
+    { name: "Brgy. Lopez Jaena", fee: 30.00 },
+    { name: "Brgy. Magsaysay", fee: 50.00 }
+];
+
+function sortShippingOptions() {
+    return [...SHIPPING_OPTIONS].sort((a, b) => {
+        const getSecondWord = (str) => {
+            const parts = str.split(' ');
+            return parts.length > 1 ? parts[1] : str;
+        };
+        return getSecondWord(a.name).localeCompare(getSecondWord(b.name));
+    });
+}
+
+function renderShippingDropdown() {
+    const select = document.getElementById('shipping-address');
+    if (!select) return;
+    
+    const sorted = sortShippingOptions();
+    let html = `<option value="" disabled selected>Select your barangay/sitio</option>`;
+    sorted.forEach(opt => {
+        html += `<option value="${opt.name}|${opt.fee.toFixed(2)}">${opt.name}</option>`;
+    });
+    select.innerHTML = html;
+}
+
+// ============================================
+// TOGGLE DELIVERY FIELDS + PAYMENT OPTIONS
+// ============================================
+window.toggleDeliveryFields = function() {
+    const orderType = document.getElementById('order-type').value;
+    const shippingGroup = document.getElementById('shipping-group');
+    const landmarkGroup = document.getElementById('landmark-group');
+    const landmarkField = document.getElementById('customer-address');
+    const paymentSelect = document.getElementById('payment-method');
+    
+    if (orderType === 'Delivery') {
+        shippingGroup.style.display = 'block';
+        landmarkGroup.style.display = 'block';
+        landmarkField.required = true;
+    } else {
+        shippingGroup.style.display = 'none';
+        landmarkGroup.style.display = 'none';
+        landmarkField.required = false;
+        selectedShippingAddress = '';
+        selectedShippingFee = 0;
+        const shippingSelect = document.getElementById('shipping-address');
+        if (shippingSelect) shippingSelect.value = '';
+        updateUI();
+    }
+    
+    const codOption = paymentSelect.querySelector('option[value="COD"]');
+    const copOption = paymentSelect.querySelector('option[value="COP"]');
+    
+    if (orderType === 'Delivery') {
+        codOption.style.display = 'block';
+        copOption.style.display = 'none';
+        if (paymentSelect.value === 'COP') {
+            paymentSelect.value = 'COD';
+            toggleGcashInfo();
+        }
+    } else {
+        codOption.style.display = 'none';
+        copOption.style.display = 'block';
+        if (paymentSelect.value === 'COD') {
+            paymentSelect.value = 'COP';
+            toggleGcashInfo();
+        }
+    }
+};
+
 // ============================================
 // CSV ROW PARSER – handles quoted fields
 // ============================================
@@ -36,7 +125,7 @@ function parseCSVRow(row) {
 }
 
 // ============================================
-// LOAD PRODUCTS – your exact column layout
+// LOAD PRODUCTS – NEW COLUMN ORDER (with badge at index 2)
 // ============================================
 async function loadProducts(showToastOnSuccess = true) {
     try {
@@ -48,19 +137,21 @@ async function loadProducts(showToastOnSuccess = true) {
         const allProducts = rows.map(row => {
             const cols = parseCSVRow(row);
 
-            // YOUR COLUMN ORDER:
-            // 0:id, 1:name, 2:category, 3:price, 4:image, 5:status, 6:stock,
-            // 7:variant_option, 8:has_flavors, 9:unavailable_flavors
+            // NEW COLUMN ORDER:
+            // 0:id, 1:name, 2:badge, 3:category, 4:price, 5:details,
+            // 6:status, 7:stock, 8:variant_option, 9:has_flavors,
+            // 10:unavailable_flavors, 11:image
 
             const id = cols[0]?.trim();
             const name = cols[1]?.trim();
-            const category = cols[2]?.trim() || 'Uncategorized';
-            const price = parseFloat(cols[3]) || 0;
-            const image = cols[4]?.trim();
-            const status = cols[5]?.trim();
-            const stock = parseInt(cols[6]) || 0;
+            const badge = cols[2]?.trim() || '';               // 🆕 Badge
+            const category = cols[3]?.trim() || 'Uncategorized';
+            const price = parseFloat(cols[4]) || 0;
+            const details = cols[5]?.trim() || '';
+            const status = cols[6]?.trim();
+            const stock = parseInt(cols[7]) || 0;
             
-            let variant_option_raw = cols[7]?.trim() || '';
+            let variant_option_raw = cols[8]?.trim() || '';
             let flavorArray = variant_option_raw
                 .split(',')
                 .map(f => f.trim())
@@ -68,17 +159,20 @@ async function loadProducts(showToastOnSuccess = true) {
 
             const has_flavors = flavorArray.length > 0;
 
-            let unavailable_raw = cols[9]?.trim() || '';
+            let unavailable_raw = cols[10]?.trim() || '';
             let unavailableArray = unavailable_raw
                 .split(',')
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
+            const image = cols[11]?.trim() || '';
+
             return {
-                id, name, category, price, image, status, stock,
+                id, name, badge, category, price, details, status, stock,
                 variant_option: flavorArray,
                 unavailable_flavors: unavailableArray,
-                has_flavors
+                has_flavors,
+                image
             };
         }).filter(p => p.id && p.name);
 
@@ -106,7 +200,7 @@ async function loadProducts(showToastOnSuccess = true) {
 
 // ============================================
 // RENDER CATEGORY TABS + HEADINGS + PRODUCT CARDS
-// WITH PRECISE SCROLL SPY (direction‑aware)
+// (Scroll spy – unchanged, perfect)
 // ============================================
 function renderCategoriesAndMenu() {
     // Group products by category
@@ -128,14 +222,14 @@ function renderCategoriesAndMenu() {
     });
     tabsContainer.innerHTML = tabsHtml;
 
-    // Store mapping between category ID and tab element
+    // Store mapping
     const tabMap = new Map();
     document.querySelectorAll('.category-tab').forEach(tab => {
         const categoryId = tab.dataset.category;
         tabMap.set(categoryId, tab);
     });
 
-    // Click handler – smooth scroll to heading with dynamic offset
+    // Click handler
     document.querySelectorAll('.category-tab').forEach(tab => {
         tab.addEventListener('click', function(e) {
             const categoryId = this.dataset.category;
@@ -146,7 +240,6 @@ function renderCategoriesAndMenu() {
                 const headerHeight = header ? header.offsetHeight : 0;
                 const tabsHeight = tabs ? tabs.offsetHeight : 0;
                 const offset = headerHeight + tabsHeight + 15;
-                
                 const y = heading.getBoundingClientRect().top + window.scrollY - offset;
                 window.scrollTo({ top: y, behavior: 'smooth' });
             }
@@ -159,8 +252,6 @@ function renderCategoriesAndMenu() {
     // Render menu grid
     const grid = document.getElementById('menu-grid');
     let gridHtml = '';
-
-    // Store category boundaries for scroll spy
     const categoryBoundaries = [];
 
     categoryMap.forEach((productsInCat, category) => {
@@ -173,7 +264,6 @@ function renderCategoriesAndMenu() {
             } else {
                 gridHtml += renderSimpleProductCard(prod);
             }
-            // If this is the last product in the category, add a hidden marker
             if (index === productsInCat.length - 1) {
                 gridHtml += `<div id="end-${safeId}" class="category-end" style="height:0; opacity:0;"></div>`;
             }
@@ -182,7 +272,7 @@ function renderCategoriesAndMenu() {
 
     grid.innerHTML = gridHtml;
 
-    // ---- Build category boundaries for scroll spy ----
+    // Build boundaries
     categoryBoundaries.length = 0;
     categoryMap.forEach((_, category) => {
         const safeId = category.replace(/\s+/g, '-').toLowerCase();
@@ -191,7 +281,6 @@ function renderCategoriesAndMenu() {
         if (heading && endMarker) {
             categoryBoundaries.push({
                 id: safeId,
-                name: category,
                 headingEl: heading,
                 endEl: endMarker,
                 tab: tabMap.get(safeId)
@@ -199,14 +288,13 @@ function renderCategoriesAndMenu() {
         }
     });
 
-    // ---- Scroll Spy with direction detection ----
+    // Scroll spy
     let lastScrollY = window.scrollY;
     let scrollDirection = 'down';
-    let activeCategoryId = null;
+    let activeCategoryId = window.lastActiveCategory || categoryBoundaries[0]?.id || null;
 
     function updateActiveTab(categoryId) {
-        if (!categoryId) return;
-        if (activeCategoryId === categoryId) return;
+        if (!categoryId || activeCategoryId === categoryId) return;
         const tab = tabMap.get(categoryId);
         if (tab) {
             document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
@@ -225,26 +313,22 @@ function renderCategoriesAndMenu() {
         const tabs = document.querySelector('.category-tabs');
         const headerHeight = header ? header.offsetHeight : 0;
         const tabsHeight = tabs ? tabs.offsetHeight : 0;
-        const stickyBottom = headerHeight + tabsHeight; // bottom edge of sticky area
+        const stickyBottom = headerHeight + tabsHeight;
 
         if (scrollDirection === 'down') {
-            // Scrolling down: activate when heading top is just below sticky area
-            for (let i = categoryBoundaries.length - 1; i >= 0; i--) { // check from bottom up
+            for (let i = categoryBoundaries.length - 1; i >= 0; i--) {
                 const boundary = categoryBoundaries[i];
                 const headingTop = boundary.headingEl.getBoundingClientRect().top;
-                if (headingTop <= stickyBottom + 10) { // 10px tolerance
+                if (headingTop <= stickyBottom + 10) {
                     updateActiveTab(boundary.id);
                     break;
                 }
             }
         } else {
-            // Scrolling up: activate when the bottom of the last product starts to appear at the viewport bottom
-            for (let i = 0; i < categoryBoundaries.length; i++) { // check from top down
+            for (let i = 0; i < categoryBoundaries.length; i++) {
                 const boundary = categoryBoundaries[i];
                 const endBottom = boundary.endEl.getBoundingClientRect().bottom;
                 const viewportBottom = window.innerHeight;
-                // Condition: bottom of last product is within 10px below or above the viewport bottom
-                // This means it's just starting to peek into the viewport from below
                 if (endBottom >= viewportBottom - 10 && endBottom <= viewportBottom + 10) {
                     updateActiveTab(boundary.id);
                     break;
@@ -253,7 +337,6 @@ function renderCategoriesAndMenu() {
         }
     }
 
-    // Throttle scroll events for performance
     let ticking = false;
     const scrollHandler = function() {
         if (!ticking) {
@@ -265,7 +348,6 @@ function renderCategoriesAndMenu() {
         }
     };
 
-    // Remove old listener if it exists (to avoid duplicates on re-render)
     if (window.scrollListenerAttached) {
         window.removeEventListener('scroll', window.scrollHandler);
     }
@@ -273,15 +355,13 @@ function renderCategoriesAndMenu() {
     window.scrollListenerAttached = true;
     window.addEventListener('scroll', window.scrollHandler);
 
-    // Set initial active tab based on current scroll position
+    // Set initial active tab
     setTimeout(() => {
         const header = document.querySelector('.app-header');
         const tabs = document.querySelector('.category-tabs');
         const headerHeight = header ? header.offsetHeight : 0;
         const tabsHeight = tabs ? tabs.offsetHeight : 0;
         const stickyBottom = headerHeight + tabsHeight;
-        
-        // Find the first category whose heading is at or above the sticky bottom
         for (let i = categoryBoundaries.length - 1; i >= 0; i--) {
             const boundary = categoryBoundaries[i];
             const headingTop = boundary.headingEl.getBoundingClientRect().top;
@@ -290,7 +370,6 @@ function renderCategoriesAndMenu() {
                 break;
             }
         }
-        // If none found, activate the first category
         if (!activeCategoryId && categoryBoundaries.length > 0) {
             updateActiveTab(categoryBoundaries[0].id);
         }
@@ -298,7 +377,7 @@ function renderCategoriesAndMenu() {
 }
 
 // ============================================
-// RENDER SIMPLE PRODUCT (no flavors) – NO OVERLAY
+// RENDER SIMPLE PRODUCT – with BADGE + DETAILS
 // ============================================
 function renderSimpleProductCard(p) {
     const isSoldOut = p.stock <= 0;
@@ -311,16 +390,35 @@ function renderSimpleProductCard(p) {
         stockBadge = `<span class="tag available">✅ In Stock</span>`;
     }
 
+    // Badge on image
+    let badgeHtml = '';
+    if (p.badge) {
+        // Create a CSS class from badge text (lowercase, replace spaces with hyphens)
+        const badgeClass = `badge-${p.badge.toLowerCase().replace(/\s+/g, '-')}`;
+        badgeHtml = `<span class="product-badge ${badgeClass}">${p.badge}</span>`;
+    }
+
+    // Details
+    let detailsHtml = '';
+    if (p.details) {
+        const lines = p.details.split(',').map(item => item.trim()).filter(item => item);
+        detailsHtml = '<div class="product-details-text">' + 
+            lines.map(line => `<span>${line}</span>`).join('') + 
+            '</div>';
+    }
+
     return `
         <div class="product-card ${isSoldOut ? 'sold-out-gray' : ''}" data-product-id="${p.id}">
             <div class="product-image-container">
                 <img src="${p.image}" class="product-image" onerror="this.src='https://placehold.co/300x400?text=Sweet'">
+                ${badgeHtml}
             </div>
             <div class="product-details">
                 <div class="product-info">
                     <h3>${p.name}</h3>
-                    <div class="stock-badge">${stockBadge}</div>
+                    ${stockBadge}
                     <span class="price">₱${p.price.toFixed(2)}</span>
+                    ${detailsHtml}
                 </div>
                 ${isSoldOut ?
                     `<button class="add-btn disabled" disabled>⛔ Sold Out</button>` :
@@ -331,7 +429,7 @@ function renderSimpleProductCard(p) {
 }
 
 // ============================================
-// RENDER FLAVOR PRODUCT CARD – NO OVERLAY
+// RENDER FLAVOR PRODUCT CARD – with BADGE + DETAILS
 // ============================================
 function renderFlavorProductCard(p) {
     const isSoldOut = p.stock <= 0;
@@ -354,17 +452,34 @@ function renderFlavorProductCard(p) {
         stockBadge = `<span class="tag available">✅ In Stock</span>`;
     }
 
+    // Badge on image
+    let badgeHtml = '';
+    if (p.badge) {
+        const badgeClass = `badge-${p.badge.toLowerCase().replace(/\s+/g, '-')}`;
+        badgeHtml = `<span class="product-badge ${badgeClass}">${p.badge}</span>`;
+    }
+
+    // Details
+    let detailsHtml = '';
+    if (p.details) {
+        const lines = p.details.split(',').map(item => item.trim()).filter(item => item);
+        detailsHtml = '<div class="product-details-text">' + 
+            lines.map(line => `<span>${line}</span>`).join('') + 
+            '</div>';
+    }
+
     return `
         <div class="product-card product-card-variant ${isSoldOut ? 'sold-out-gray' : ''}" data-product-id="${p.id}">
             <div class="product-image-container">
                 <img src="${p.image}" class="product-image" onerror="this.src='https://placehold.co/300x400?text=Sweet'">
+                ${badgeHtml}
             </div>
             <div class="product-details">
                 <div class="product-info">
                     <h3>${p.name}</h3>
                     ${stockBadge}
                     <span class="price">₱${p.price.toFixed(2)}</span>
-                    
+                    ${detailsHtml}
                     <div class="variant-selector">
                         <select id="${dropdownId}" class="variant-dropdown" ${isSoldOut ? 'disabled' : ''} required>
                             ${options}
@@ -452,68 +567,24 @@ window.addFlavorToCart = (productId, dropdownId, event) => {
 };
 
 // ============================================
-// ANIMATION HELPERS
+// CART & TOTAL HELPERS – with shipping
 // ============================================
-function animateAddToCart(button, imageSrc) {
-    if (!button) return;
-    const buttonRect = button.getBoundingClientRect();
-    const cartBtn = document.getElementById('open-cart-btn');
-    const cartRect = cartBtn.getBoundingClientRect();
-    const startX = buttonRect.left + buttonRect.width / 2;
-    const startY = buttonRect.top + buttonRect.height / 2;
-    const endX = cartRect.left + cartRect.width / 2;
-    const endY = cartRect.top + cartRect.height / 2;
-
-    for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-            createFlyingImage(imageSrc || 'https://placehold.co/300x400?text=Sweet',
-                startX + Math.random() * 20 - 10,
-                startY + Math.random() * 20 - 10,
-                endX, endY);
-        }, i * 100);
-    }
+function getSubtotal() {
+    return cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 }
 
-function createFlyingImage(src, startX, startY, endX, endY) {
-    const flyingImg = document.createElement('div');
-    flyingImg.className = 'flying-item';
-    flyingImg.style.left = `${startX}px`;
-    flyingImg.style.top = `${startY}px`;
-    flyingImg.innerHTML = `<img src="${src}" alt="Flying item">`;
-    document.body.appendChild(flyingImg);
-    flyingImg.offsetWidth;
-    flyingImg.style.transform = `translate(${endX - startX}px, ${endY - startY}px) scale(0.3)`;
-    flyingImg.style.opacity = '0.5';
-    setTimeout(() => {
-        flyingImg.style.transition = 'all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
-        flyingImg.style.transform = `translate(${endX - startX}px, ${endY - startY}px) scale(0.1)`;
-        flyingImg.style.opacity = '0';
-        setTimeout(() => flyingImg.remove(), 800);
-    }, 100);
+function getTotal() {
+    return getSubtotal() + selectedShippingFee;
 }
 
-function animateCart() {
-    const cartBtn = document.getElementById('open-cart-btn');
-    const cartCount = document.getElementById('cart-count');
-    cartBtn.style.transform = 'translateX(-50%) scale(1.15)';
-    cartCount.style.transform = 'scale(1.5)';
-    cartCount.style.backgroundColor = '#FF9800';
-    setTimeout(() => {
-        cartBtn.style.transform = 'translateX(-50%) scale(1)';
-        cartCount.style.transform = 'scale(1)';
-        setTimeout(() => cartCount.style.backgroundColor = '', 300);
-    }, 300);
-}
-
-// ============================================
-// UPDATE CART UI
-// ============================================
 function updateUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
-    const totalVal = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    const subtotal = getSubtotal();
+    const total = getTotal();
+
     document.getElementById('cart-count').textContent = totalQty;
-    document.getElementById('float-total').textContent = `₱${totalVal.toFixed(2)}`;
-    document.getElementById('modal-total').textContent = `₱${totalVal.toFixed(2)}`;
+    document.getElementById('float-total').textContent = `₱${total.toFixed(2)}`;
+    document.getElementById('modal-total').textContent = `₱${total.toFixed(2)}`;
 
     const cartContainer = document.getElementById('cart-items');
     cartContainer.innerHTML = cart.length === 0
@@ -531,6 +602,10 @@ function updateUI() {
                 </div>
             </div>
         `).join('');
+
+    if (document.getElementById('checkout-modal').classList.contains('active')) {
+        updateCheckoutSummary();
+    }
 }
 
 window.changeQty = (id, delta) => {
@@ -558,6 +633,66 @@ window.changeQty = (id, delta) => {
     }
     updateUI();
 };
+
+// ============================================
+// SHIPPING FEE HANDLERS
+// ============================================
+window.updateShippingFee = function() {
+    const select = document.getElementById('shipping-address');
+    const selected = select.value;
+    if (selected) {
+        const [address, fee] = selected.split('|');
+        selectedShippingAddress = address;
+        selectedShippingFee = parseFloat(fee);
+    } else {
+        selectedShippingAddress = '';
+        selectedShippingFee = 0;
+    }
+    
+    animateTotalUpdate();
+    updateUI();
+    if (document.getElementById('checkout-modal').classList.contains('active')) {
+        updateCheckoutSummary();
+    }
+};
+
+function animateTotalUpdate() {
+    const totalElements = [
+        document.getElementById('float-total'),
+        document.getElementById('modal-total')
+    ];
+    totalElements.forEach(el => {
+        if (el) {
+            el.classList.add('total-update');
+            setTimeout(() => el.classList.remove('total-update'), 400);
+        }
+    });
+}
+
+function updateCheckoutSummary() {
+    const subtotal = getSubtotal();
+    const total = getTotal();
+    const shippingEl = document.getElementById('shipping-summary');
+    
+    if (selectedShippingAddress && document.getElementById('order-type').value === 'Delivery') {
+        shippingEl.innerHTML = `
+            <div class="shipping-line">
+                <span>🚚 Shipping (${selectedShippingAddress}):</span>
+                <span>₱${selectedShippingFee.toFixed(2)}</span>
+            </div>
+            <div class="shipping-line" style="font-weight:700; color:var(--primary); margin-top:8px;">
+                <span>Total with shipping:</span>
+                <span>₱${total.toFixed(2)}</span>
+            </div>
+        `;
+    } else {
+        shippingEl.innerHTML = '';
+    }
+
+    document.getElementById('final-summary-text').innerHTML = cart.map(i =>
+        `<div class="summary-item">${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}</div>`
+    ).join('');
+}
 
 // ============================================
 // VALIDATE CART AGAINST CURRENT STOCK
@@ -601,29 +736,41 @@ function resetCopyButton() {
 // CHECKOUT & RECEIPT
 // ============================================
 window.openCheckout = () => {
-    const name = document.getElementById('customer-name').value.trim();
-    const addr = document.getElementById('customer-address').value.trim();
     if (cart.length === 0) return showToast("🛒 Add some treats first!");
-    if (!name) return showToast("👤 Please enter your name");
-    if (!addr) return showToast("📍 Please enter your address");
-
+    toggleDeliveryFields();
     document.getElementById('cart-modal').classList.remove('active');
     document.getElementById('checkout-modal').classList.add('active');
-    document.getElementById('final-summary-text').innerHTML = cart.map(i =>
-        `<div class="summary-item">${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}</div>`
-    ).join('');
+    updateCheckoutSummary();
 };
 
 window.copyOrderDetails = () => {
     const name = document.getElementById('customer-name').value.trim();
-    const addr = document.getElementById('customer-address').value.trim();
+    const landmark = document.getElementById('customer-address').value.trim();
     const type = document.getElementById('order-type').value;
     const pay = document.getElementById('payment-method').value;
-    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    
+    if (!name) return showToast("👤 Please enter your name");
+    
+    if (type === 'Delivery') {
+        if (!selectedShippingAddress) {
+            return showToast("📍 Please select your shipping address");
+        }
+        if (!landmark) {
+            return showToast("🗺️ Please provide a landmark or delivery instructions");
+        }
+    }
+    
+    const subtotal = getSubtotal();
+    const total = getTotal();
 
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    let paymentDisplay = '';
+    if (pay === 'COD') paymentDisplay = 'Cash on Delivery';
+    else if (pay === 'COP') paymentDisplay = 'Cash on Pickup';
+    else paymentDisplay = 'GCash';
 
     let text = `✨ SKY SWEET TREATS ✨\n`;
     text += `════════════════\n`;
@@ -636,11 +783,20 @@ window.copyOrderDetails = () => {
 
     text += `👤 **CUSTOMER DETAILS**\n`;
     text += `• Name: ${name}\n`;
-    text += `• Address: ${addr}\n`;
+    if (type === 'Delivery') {
+        text += `• Shipping Address: ${selectedShippingAddress}\n`;
+        text += `• Landmark/Instructions: ${landmark}\n`;
+    }
     text += `• Order Type: ${type}\n`;
-    text += `• Payment: ${pay}\n`;
-    text += `════════════════\n`;
+    text += `• Payment: ${paymentDisplay}\n\n`;
 
+    if (type === 'Delivery' && selectedShippingAddress) {
+        text += `🚚 **SHIPPING**\n`;
+        text += `• Barangay: ${selectedShippingAddress}\n`;
+        text += `• Shipping Fee: ₱${selectedShippingFee.toFixed(2)}\n\n`;
+    }
+
+    text += `════════════════\n`;
     text += `🛒 **ORDER ITEMS**\n`;
     cart.forEach(i => {
         text += `• ${i.qty}x ${i.name} = ₱${(i.price * i.qty).toFixed(2)}\n`;
@@ -648,7 +804,10 @@ window.copyOrderDetails = () => {
     text += `════════════════\n`;
 
     text += `💰 **PAYMENT SUMMARY**\n`;
-    text += `• Subtotal: ₱${total.toFixed(2)}\n`;
+    text += `• Subtotal: ₱${subtotal.toFixed(2)}\n`;
+    if (type === 'Delivery' && selectedShippingFee > 0) {
+        text += `• Shipping Fee: ₱${selectedShippingFee.toFixed(2)}\n`;
+    }
     text += `• Total Amount: ₱${total.toFixed(2)}\n`;
     text += `════════════════\n`;
 
@@ -738,14 +897,66 @@ function showToast(message, duration = 2000) {
     const toast = document.getElementById('toast');
     toast.textContent = message;
     toast.classList.add('show');
-    
     if (window.toastTimeout) clearTimeout(window.toastTimeout);
-    
     if (duration > 0) {
         window.toastTimeout = setTimeout(() => {
             toast.classList.remove('show');
         }, duration);
     }
+}
+
+// ============================================
+// ANIMATION HELPERS
+// ============================================
+function animateAddToCart(button, imageSrc) {
+    if (!button) return;
+    const buttonRect = button.getBoundingClientRect();
+    const cartBtn = document.getElementById('open-cart-btn');
+    const cartRect = cartBtn.getBoundingClientRect();
+    const startX = buttonRect.left + buttonRect.width / 2;
+    const startY = buttonRect.top + buttonRect.height / 2;
+    const endX = cartRect.left + cartRect.width / 2;
+    const endY = cartRect.top + cartRect.height / 2;
+
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            createFlyingImage(imageSrc || 'https://placehold.co/300x400?text=Sweet',
+                startX + Math.random() * 20 - 10,
+                startY + Math.random() * 20 - 10,
+                endX, endY);
+        }, i * 100);
+    }
+}
+
+function createFlyingImage(src, startX, startY, endX, endY) {
+    const flyingImg = document.createElement('div');
+    flyingImg.className = 'flying-item';
+    flyingImg.style.left = `${startX}px`;
+    flyingImg.style.top = `${startY}px`;
+    flyingImg.innerHTML = `<img src="${src}" alt="Flying item">`;
+    document.body.appendChild(flyingImg);
+    flyingImg.offsetWidth;
+    flyingImg.style.transform = `translate(${endX - startX}px, ${endY - startY}px) scale(0.3)`;
+    flyingImg.style.opacity = '0.5';
+    setTimeout(() => {
+        flyingImg.style.transition = 'all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+        flyingImg.style.transform = `translate(${endX - startX}px, ${endY - startY}px) scale(0.1)`;
+        flyingImg.style.opacity = '0';
+        setTimeout(() => flyingImg.remove(), 800);
+    }, 100);
+}
+
+function animateCart() {
+    const cartBtn = document.getElementById('open-cart-btn');
+    const cartCount = document.getElementById('cart-count');
+    cartBtn.style.transform = 'translateX(-50%) scale(1.15)';
+    cartCount.style.transform = 'scale(1.5)';
+    cartCount.style.backgroundColor = '#FF9800';
+    setTimeout(() => {
+        cartBtn.style.transform = 'translateX(-50%) scale(1)';
+        cartCount.style.transform = 'scale(1)';
+        setTimeout(() => cartCount.style.backgroundColor = '', 300);
+    }, 300);
 }
 
 // ============================================
@@ -784,7 +995,9 @@ window.forceStockRefresh = function() {
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
+    renderShippingDropdown();
     loadProducts(false);
+    
     document.getElementById('open-cart-btn').onclick = () => {
         document.getElementById('cart-modal').classList.add('active');
     };
@@ -792,8 +1005,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const orderTypeSelect = document.getElementById('order-type');
     const paymentMethodSelect = document.getElementById('payment-method');
-    if (orderTypeSelect) orderTypeSelect.addEventListener('change', resetCopyButton);
+    if (orderTypeSelect) {
+        orderTypeSelect.addEventListener('change', toggleDeliveryFields);
+        orderTypeSelect.addEventListener('change', resetCopyButton);
+    }
     if (paymentMethodSelect) paymentMethodSelect.addEventListener('change', resetCopyButton);
+
+    toggleDeliveryFields();
+
+    selectedShippingAddress = '';
+    selectedShippingFee = 0;
 
     document.getElementById('customer-name')?.addEventListener('input', function() {
         if (this.value.trim()) this.style.borderColor = '#4CAF50';
@@ -809,4 +1030,4 @@ document.addEventListener('keydown', (e) => {
         loadProducts(true);
         showToast('🔄 Manual refresh triggered');
     }
-});
+}); 
