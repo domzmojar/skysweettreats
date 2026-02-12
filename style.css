@@ -79,7 +79,7 @@ body {
 /* ===== CATEGORY TABS ===== */
 .category-tabs {
     position: sticky;
-    top: 93px; /* just below the header */
+    top: 93px;
     z-index: 90;
     background-color: white;
     border-bottom: 1px solid #eee;
@@ -89,12 +89,12 @@ body {
     overflow-x: auto;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .category-tabs::-webkit-scrollbar {
-    display: none; /* Chrome/Safari */
+    display: none;
 }
 
 .category-tab {
@@ -115,6 +115,12 @@ body {
     color: white;
 }
 
+@media (min-width: 768px) {
+    .category-tabs {
+        justify-content: center;
+    }
+}
+
 /* ===== CATEGORY HEADINGS ===== */
 .category-heading {
     font-size: 1.3rem;
@@ -123,9 +129,9 @@ body {
     margin: 25px 0 15px 0;
     padding-bottom: 5px;
     border-bottom: 3px solid var(--primary-light);
-    display: block;               /* changed from inline-block */
-    grid-column: 1 / -1;         /* spans full width of the grid */
-    width: 100%;                 /* ensures full width */
+    display: block;
+    grid-column: 1 / -1;
+    width: 100%;
 }
 
 /* ===== MENU GRID ===== */
@@ -176,8 +182,6 @@ body {
     transform: scale(1.05);
 }
 
-/* 🚫 REMOVED: add-to-cart-overlay styles – completely deleted */
-
 .product-details { 
     padding: 15px; 
     flex-grow: 1; 
@@ -200,6 +204,20 @@ body {
     color: var(--primary); 
     font-size: 1.1rem; 
     margin: 10px 0; 
+    display: block;
+}
+
+/* ===== PRODUCT DETAILS ===== */
+.product-details-text {
+    font-size: 0.75rem;
+    color: var(--text-medium);
+    margin: 5px 0 8px;
+    line-height: 1.4;
+    border-top: 1px dashed #eee;
+    padding-top: 6px;
+}
+
+.product-details-text span {
     display: block;
 }
 
@@ -491,21 +509,7 @@ body {
     font-weight: 600;
 }
 
-/* ===== CUSTOMER DETAILS ===== */
-.customer-details { 
-    background: #f8f9fa; 
-    padding: 20px; 
-    border-radius: var(--radius); 
-    margin-bottom: 20px;
-    border: 1px solid #eaeaea;
-}
-
-.customer-details h3 { 
-    margin-bottom: 15px; 
-    color: var(--text-dark); 
-    font-size: 1.1rem;
-}
-
+/* ===== FORM GROUPS ===== */
 .form-group { 
     margin-bottom: 15px;
 }
@@ -519,26 +523,24 @@ body {
 }
 
 .form-group input, 
-.form-group textarea { 
+.form-group textarea,
+.option-group select { 
     width: 100%; 
     padding: 14px; 
     border: 2px solid #ddd; 
     border-radius: var(--radius-sm); 
     font-family: inherit; 
     font-size: 0.95rem;
+    background-color: var(--bg-white);
     transition: border-color 0.3s ease;
 }
 
 .form-group input:focus, 
-.form-group textarea:focus { 
+.form-group textarea:focus,
+.option-group select:focus { 
     border-color: var(--primary); 
     outline: none;
     box-shadow: 0 0 0 3px rgba(255,87,34,0.1);
-}
-
-/* ===== CHECKOUT MODAL ===== */
-.checkout-body { 
-    padding: 10px 0;
 }
 
 .option-group { 
@@ -552,20 +554,9 @@ body {
     color: var(--text-dark);
 }
 
-.option-group select { 
-    width: 100%; 
-    padding: 14px; 
-    border: 2px solid #ddd; 
-    border-radius: var(--radius-sm); 
-    font-family: inherit; 
-    font-size: 0.95rem;
-    background-color: var(--bg-white);
-    cursor: pointer;
-}
-
-.option-group select:focus { 
-    border-color: var(--primary); 
-    outline: none;
+/* ===== CHECKOUT MODAL ===== */
+.checkout-body { 
+    padding: 10px 0;
 }
 
 /* ===== PAYMENT INFO ===== */
@@ -625,11 +616,6 @@ body {
     line-height: 1.4;
 }
 
-.receipt-reminder strong { 
-    display: block; 
-    margin-bottom: 5px;
-}
-
 /* ===== ORDER SUMMARY ===== */
 .order-summary-box { 
     background: #fdfdfd; 
@@ -656,14 +642,24 @@ body {
     border-bottom: none;
 }
 
-.modal-total-display { 
-    font-size: 1.2rem; 
-    font-weight: 700; 
-    color: var(--primary); 
-    margin: 20px 0; 
-    text-align: right;
-    padding: 15px 0;
-    border-top: 2px solid #f0f0f0;
+/* ===== SHIPPING SUMMARY ===== */
+.shipping-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin-top: 8px;
+    color: var(--text-dark);
+}
+
+/* ===== TOTAL ANIMATION ===== */
+.total-update {
+    animation: totalPulse 0.4s ease;
+}
+
+@keyframes totalPulse {
+    0% { transform: scale(1); color: var(--primary); }
+    50% { transform: scale(1.1); color: #FF9800; }
+    100% { transform: scale(1); color: var(--primary); }
 }
 
 /* ===== ACTION BUTTONS ===== */
@@ -708,10 +704,6 @@ body {
     border-color: #adb5bd;
 }
 
-.btn-secondary:active { 
-    transform: translateY(1px);
-}
-
 .back-to-menu-link { 
     display: block; 
     text-align: center; 
@@ -752,23 +744,6 @@ body {
 .toast.show { 
     opacity: 1; 
     top: 30px;
-}
-
-/* ===== STOCK UPDATE NOTIFICATION ===== */
-.stock-update-notification {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-    color: white;
-    border-radius: 12px;
-    padding: 0;
-    z-index: 9999;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-    animation: slideInRight 0.3s ease-out;
-    max-width: 300px;
-    overflow: hidden;
-    border: 2px solid #388E3C;
 }
 
 /* ===== VARIANT DROPDOWN STYLES ===== */
@@ -828,7 +803,6 @@ body {
     -webkit-text-fill-color: white !important;
 }
 
-/* ===== UNAVAILABLE FLAVORS – GRAY + STRIKETHROUGH ===== */
 .variant-dropdown option:disabled:not(.placeholder-option) {
     background-color: #f5f5f5 !important;
     color: #999 !important;
@@ -1021,9 +995,41 @@ body {
     }
 }
 
-/* Center category tabs on desktop, keep left on mobile */
-@media (min-width: 768px) {
-    .category-tabs {
-        justify-content: center;
-    }
+/* ===== PRODUCT BADGE (on image) ===== */
+.product-image-container {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+}
+
+.product-badge {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    background: #FF5722;  /* fallback */
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 12px 4px 10px;
+    border-radius: 0 20px 20px 0;
+    z-index: 5;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-left: 2px solid rgba(255,255,255,0.5);
+}
+
+/* Badge color variants – you can add more */
+.product-badge.badge-best-seller {
+    background: #FF9800;
+}
+.product-badge.badge-new {
+    background: #4CAF50;
+}
+.product-badge.badge-hot {
+    background: #F44336;
+}
+.product-badge.badge-limited {
+    background: #9C27B0;
 }
