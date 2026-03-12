@@ -1,14 +1,14 @@
 const CONFIG = {
     currency: "₱",
     messengerUrl: "https://m.me/100089330907916",
-    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBquyZXkcMOzDv_14qyXq7sQvxqQ6k1l6tWZsiqspZ_mgl88Lqx08h3wUVYu9W9-MIP-ja5f-Yvtsj/pub?gid=1109857950&single=true&output=csv",
+    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTMMb-QTohY5nGLYXB-eefCH0JZBXOqvc02U3MgFIalPmf4WLsnny45lyXx-CMmzrBI2pXy_f44Pd3E/pub?gid=0&single=true&output=csv",
     businessPhone: "09264569430",
     businessHours: "8:00 AM - 9:00 PM"
 };
 
 let products = [];
 let cart = [];
-let hasCopied = false;
+let hasCopied = false; // kept for backward compatibility, but copy button removed
 let refreshPromptCount = 0;
 const MAX_REFRESH_PROMPTS = 1;
 let toastTimeout = null;
@@ -56,24 +56,20 @@ function parseCSVRow(row) {
 // ============================================
 function convertGoogleDriveLink(url) {
     if (!url) return url;
-    
-    // Match Google Drive file ID from various link formats
     const patterns = [
-        /(?:https?:\/\/)?drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/, // file/d/ID
-        /(?:https?:\/\/)?drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/, // open?id=ID
-        /(?:https?:\/\/)?drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/, // uc?id=ID
-        /[-\w]{25,}/ // if just the ID is pasted
+        /(?:https?:\/\/)?drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /(?:https?:\/\/)?drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
+        /(?:https?:\/\/)?drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/,
+        /[-\w]{25,}/
     ];
-    
     for (let pattern of patterns) {
         const match = url.match(pattern);
         if (match) {
-            const fileId = match[1] || match[0]; // extract ID
-            // Use thumbnail URL with size appropriate for your cards (400x400)
+            const fileId = match[1] || match[0];
             return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400-h400`;
         }
     }
-    return url; // return original if not a Google Drive link
+    return url;
 }
 
 // ============================================
@@ -95,7 +91,7 @@ async function loadProducts(showToastOnSuccess = true) {
             const cols = parseCSVRow(row);
             const id = cols[0]?.trim();
 
-            if (!id) return; // ignore completely empty id rows (labels)
+            if (!id) return;
 
             if (id === 'ANNOUNCE') {
                 announcementRow = cols;
@@ -103,16 +99,15 @@ async function loadProducts(showToastOnSuccess = true) {
                 distanceRows.push(cols);
             } else if (id === 'BANNER') {
                 bannerRows.push(cols);
-            } else if (id !== 'id') { // normal product (numeric id)
+            } else if (id !== 'id') {
                 allProducts.push(cols);
             }
         });
 
-        // Process announcement
         if (announcementRow) {
             const title = announcementRow[1]?.trim();
-            const message = announcementRow[5]?.trim(); // details column
-            const status = announcementRow[6]?.trim(); // status column (active/inactive)
+            const message = announcementRow[5]?.trim();
+            const status = announcementRow[6]?.trim();
             if (status && status.toLowerCase() === 'active' && title && message) {
                 currentAnnouncement = { title, message };
             } else {
@@ -122,7 +117,6 @@ async function loadProducts(showToastOnSuccess = true) {
             currentAnnouncement = null;
         }
 
-        // Process distance rows – build shipping options (name in col1, fee in col4)
         const shippingOptions = distanceRows.map(cols => ({
             name: cols[1]?.trim(),
             fee: parseFloat(cols[4]) || 0
@@ -132,16 +126,13 @@ async function loadProducts(showToastOnSuccess = true) {
             renderShippingDropdown(shippingOptions);
         }
 
-        // Process banner rows – alt text in col1 (name), image in col11 (image)
         banners = bannerRows.map(cols => ({
             alt: cols[1]?.trim() || 'Banner',
             image: convertGoogleDriveLink(cols[11]?.trim() || '')
         })).filter(banner => banner.image);
 
-        // Render hero carousel
         renderHeroCarousel();
 
-        // Process normal products – column order: id, name, badge, category, price, details, status, stock, variant_option, has_flavors, unavailable_flavors, image
         products = allProducts.map(cols => {
             const id = cols[0]?.trim();
             const name = cols[1]?.trim();
@@ -166,7 +157,6 @@ async function loadProducts(showToastOnSuccess = true) {
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
-            // 🆕 Convert Google Drive links for product images too
             const image = convertGoogleDriveLink(cols[11]?.trim() || '');
 
             return {
@@ -182,7 +172,6 @@ async function loadProducts(showToastOnSuccess = true) {
         validateCartAgainstNewStock();
         showAnnouncementIfNeeded();
 
-        // Restore the previously active category tab (if any)
         if (window.lastActiveCategory) {
             const activeTab = document.querySelector(`.category-tab[data-category="${window.lastActiveCategory}"]`);
             if (activeTab) {
@@ -191,7 +180,6 @@ async function loadProducts(showToastOnSuccess = true) {
             }
         }
 
-        // Force scroll spy to update active tab after re‑render
         window.dispatchEvent(new Event('scroll'));
 
         if (showToastOnSuccess) {
@@ -220,11 +208,10 @@ function renderHeroCarousel() {
     if (!container) return;
 
     if (banners.length === 0) {
-        container.innerHTML = ''; // hide if no banners
+        container.innerHTML = '';
         return;
     }
 
-    // Stop previous interval if any
     if (carouselInterval) {
         clearInterval(carouselInterval);
         carouselInterval = null;
@@ -278,7 +265,6 @@ function setupCarousel() {
         });
     }
 
-    // Auto advance every 5 seconds
     carouselInterval = setInterval(() => {
         updateSlide(currentSlide + 1);
     }, 5000);
@@ -286,18 +272,13 @@ function setupCarousel() {
     if (prevBtn && nextBtn) {
         prevBtn.addEventListener('click', () => {
             updateSlide(currentSlide - 1);
-            // reset interval
             clearInterval(carouselInterval);
-            carouselInterval = setInterval(() => {
-                updateSlide(currentSlide + 1);
-            }, 5000);
+            carouselInterval = setInterval(() => updateSlide(currentSlide + 1), 5000);
         });
         nextBtn.addEventListener('click', () => {
             updateSlide(currentSlide + 1);
             clearInterval(carouselInterval);
-            carouselInterval = setInterval(() => {
-                updateSlide(currentSlide + 1);
-            }, 5000);
+            carouselInterval = setInterval(() => updateSlide(currentSlide + 1), 5000);
         });
     }
 
@@ -306,13 +287,10 @@ function setupCarousel() {
             const index = parseInt(e.target.dataset.index);
             updateSlide(index);
             clearInterval(carouselInterval);
-            carouselInterval = setInterval(() => {
-                updateSlide(currentSlide + 1);
-            }, 5000);
+            carouselInterval = setInterval(() => updateSlide(currentSlide + 1), 5000);
         });
     });
 
-    // Touch/swipe for mobile
     slides.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
@@ -322,31 +300,26 @@ function setupCarousel() {
 
     slides.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
-        e.preventDefault(); // prevent page scroll while swiping
+        e.preventDefault();
     }, { passive: false });
 
     slides.addEventListener('touchend', (e) => {
         if (!isDragging) return;
         const endX = e.changedTouches[0].clientX;
         const deltaX = endX - startX;
-        const threshold = 50; // minimum swipe distance
+        const threshold = 50;
 
         if (Math.abs(deltaX) > threshold) {
             if (deltaX > 0) {
-                // swipe right -> previous slide
                 updateSlide(currentSlide - 1);
             } else {
-                // swipe left -> next slide
                 updateSlide(currentSlide + 1);
             }
         }
         isDragging = false;
-        carouselInterval = setInterval(() => {
-            updateSlide(currentSlide + 1);
-        }, 5000);
+        carouselInterval = setInterval(() => updateSlide(currentSlide + 1), 5000);
     });
 
-    // Handle window resize
     window.addEventListener('resize', () => {
         slideWidth = slides.clientWidth;
         slides.style.transform = `translateX(-${currentSlide * 100}%)`;
@@ -354,13 +327,12 @@ function setupCarousel() {
 }
 
 // ============================================
-// RENDER SHIPPING DROPDOWN (from loaded distances)
+// RENDER SHIPPING DROPDOWN
 // ============================================
 function renderShippingDropdown(shippingOptions) {
     const select = document.getElementById('shipping-address');
     if (!select) return;
 
-    // Sort by second word
     const sorted = [...shippingOptions].sort((a, b) => {
         const getSecondWord = (str) => {
             const parts = str.split(' ');
@@ -454,7 +426,6 @@ window.showAnnouncementManually = function() {
 // TOGGLE AMOUNT INPUT BASED ON EXACT AMOUNT RADIO
 // ============================================
 window.toggleAmountInput = function() {
-    const exactYes = document.querySelector('input[name="exact-amount"][value="yes"]');
     const exactNo = document.querySelector('input[name="exact-amount"][value="no"]');
     const amountContainer = document.getElementById('amount-input-container');
     const changeContainer = document.getElementById('change-due-container');
@@ -472,7 +443,6 @@ window.toggleAmountInput = function() {
     }
     updateChangeDue();
     updateCheckoutSummary();
-    resetCopyButton();
 };
 
 // ============================================
@@ -496,6 +466,28 @@ window.updateChangeDue = function() {
     }
     updateCheckoutSummary();
 };
+
+// ============================================
+// RESET EXACT AMOUNT SELECTION (used when switching payment methods)
+// ============================================
+function resetExactAmount() {
+    const radios = document.querySelectorAll('input[name="exact-amount"]');
+    const amountContainer = document.getElementById('amount-input-container');
+    const changeContainer = document.getElementById('change-due-container');
+    const amountInput = document.getElementById('customer-amount');
+    
+    // Uncheck all radios
+    radios.forEach(r => r.checked = false);
+    
+    // Hide and clear amount input
+    amountContainer.style.display = 'none';
+    changeContainer.style.display = 'none';
+    amountInput.value = '';
+    amountInput.required = false;
+    
+    // Update change display
+    updateChangeDue();
+}
 
 // ============================================
 // TOGGLE DELIVERY FIELDS + PAYMENT OPTIONS
@@ -545,10 +537,35 @@ window.toggleDeliveryFields = function() {
 };
 
 // ============================================
+// TOGGLE GCASH INFO + HIDE/SHOW EXACT AMOUNT + RESET SELECTION
+// ============================================
+function toggleGcashInfo() {
+    const isGcash = document.getElementById('payment-method').value === 'GCASH';
+    const gcashInfo = document.getElementById('gcash-info');
+    const exactGroup = document.getElementById('exact-amount-group');
+    
+    gcashInfo.style.display = isGcash ? 'block' : 'none';
+    
+    // Reset exact amount selection regardless of mode (clean slate)
+    resetExactAmount();
+    
+    if (isGcash) {
+        // Hide exact amount section
+        exactGroup.style.display = 'none';
+        // Radios already unchecked and cleared by resetExactAmount
+    } else {
+        // Show exact amount section
+        exactGroup.style.display = 'block';
+        // Radios are unchecked; user must choose again
+    }
+    
+    if (isGcash) showToast("💳 GCash selected – exact amount not needed", 3000);
+}
+
+// ============================================
 // RENDER CATEGORY TABS + HEADINGS + PRODUCT CARDS (scroll spy)
 // ============================================
 function renderCategoriesAndMenu() {
-    // Group products by category
     const categoryMap = new Map();
     products.forEach(prod => {
         const cat = prod.category || 'Uncategorized';
@@ -649,7 +666,6 @@ function renderCategoriesAndMenu() {
         const tabsHeight = tabs ? tabs.offsetHeight : 0;
         const stickyBottom = headerHeight + tabsHeight;
 
-        // Find the lowest category heading whose top is <= stickyBottom + 10
         let activeId = null;
         for (let i = categoryBoundaries.length - 1; i >= 0; i--) {
             const boundary = categoryBoundaries[i];
@@ -659,7 +675,6 @@ function renderCategoriesAndMenu() {
                 break;
             }
         }
-        // If none found (e.g., all headings above sticky area), activate first category
         if (!activeId && categoryBoundaries.length > 0) {
             activeId = categoryBoundaries[0].id;
         }
@@ -686,7 +701,6 @@ function renderCategoriesAndMenu() {
     window.scrollListenerAttached = true;
     window.addEventListener('scroll', window.scrollHandler);
 
-    // Set initial active tab based on scroll position, fallback to first
     setTimeout(() => {
         const header = document.querySelector('.app-header');
         const tabs = document.querySelector('.category-tabs');
@@ -1086,19 +1100,7 @@ function validateCartAgainstNewStock() {
 }
 
 // ============================================
-// RESET COPY BUTTON
-// ============================================
-function resetCopyButton() {
-    hasCopied = false;
-    const btn = document.getElementById('copy-details-btn');
-    if (btn) {
-        btn.innerHTML = "1. Copy Order Details 📋";
-        btn.style.background = "";
-    }
-}
-
-// ============================================
-// CHECKOUT & RECEIPT
+// CHECKOUT & RECEIPT – with GCash handling
 // ============================================
 window.openCheckout = () => {
     if (cart.length === 0) return showToast("🛒 Add some treats first!");
@@ -1108,39 +1110,47 @@ window.openCheckout = () => {
     updateCheckoutSummary();
 };
 
-// Helper to build order text (used by both copy and send) – WITH TRANSLATIONS
+// Helper to build order text (used by sendToMessenger)
 function buildOrderText() {
     const name = document.getElementById('customer-name').value.trim();
     const landmark = document.getElementById('customer-address').value.trim();
     const type = document.getElementById('order-type').value;
     const pay = document.getElementById('payment-method').value;
     
-    const exactAmountRadio = document.querySelector('input[name="exact-amount"]:checked');
-    if (!exactAmountRadio) {
-        showToast("💰 Please indicate if you have exact amount");
-        return null;
+    // For GCash, skip exact amount validation
+    if (pay !== 'GCASH') {
+        const exactAmountRadio = document.querySelector('input[name="exact-amount"]:checked');
+        if (!exactAmountRadio) {
+            showToast("💰 Please indicate if you have exact amount");
+            return null;
+        }
     }
     
-    // Determine the display text for exact amount (translated)
-    const exactDisplay = exactAmountRadio.value === 'yes' 
-        ? 'Yes, exact amount akon ibayad' 
-        : 'No, kalambyuhan akon ibayad';
-    
+    // Determine display texts
+    let exactDisplay = '';
     let customerAmount = null;
     let changeDue = null;
-    if (exactAmountRadio.value === 'no') {
-        const amountInput = document.getElementById('customer-amount');
-        if (!amountInput.value || isNaN(parseFloat(amountInput.value))) {
-            showToast("💵 Please enter the amount you will pay");
-            return null;
+    
+    if (pay === 'GCASH') {
+        exactDisplay = 'N/A (GCash)';
+    } else {
+        const exactAmountRadio = document.querySelector('input[name="exact-amount"]:checked');
+        exactDisplay = exactAmountRadio.value === 'yes' ? 'Yes, exact amount akon ibayad' : 'No, kalambyuhan akon ibayad';
+        
+        if (exactAmountRadio.value === 'no') {
+            const amountInput = document.getElementById('customer-amount');
+            if (!amountInput.value || isNaN(parseFloat(amountInput.value))) {
+                showToast("💵 Please enter the amount you will pay");
+                return null;
+            }
+            customerAmount = parseFloat(amountInput.value);
+            const total = getTotal();
+            if (customerAmount < total) {
+                showToast(`💵 Amount must be at least ₱${total.toFixed(2)}`);
+                return null;
+            }
+            changeDue = customerAmount - total;
         }
-        customerAmount = parseFloat(amountInput.value);
-        const total = getTotal();
-        if (customerAmount < total) {
-            showToast(`💵 Amount must be at least ₱${total.toFixed(2)}`);
-            return null;
-        }
-        changeDue = customerAmount - total;
     }
     
     if (!name) {
@@ -1188,7 +1198,6 @@ function buildOrderText() {
     }
     text += `• Order Type: ${type}\n`;
     text += `• Payment: ${paymentDisplay}\n`;
-    // Translated exact amount line
     text += `• Sakto imo ibayad? ${exactDisplay}\n`;
     if (customerAmount !== null) {
         text += `• Amount nga ibayad mo: ₱${customerAmount.toFixed(2)}\n`;
@@ -1215,7 +1224,6 @@ function buildOrderText() {
     }
     text += `• Total Amount: ₱${total.toFixed(2)}\n`;
     if (customerAmount !== null) {
-        // Translated amount and change in summary too
         text += `• Amount nga ibayad mo: ₱${customerAmount.toFixed(2)}\n`;
         text += `• Imo kambyo: ₱${changeDue.toFixed(2)}\n`;
     }
@@ -1241,40 +1249,20 @@ function buildOrderText() {
     return text;
 }
 
-window.copyOrderDetails = function() {
-    const text = buildOrderText();
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-        hasCopied = true;
-        const btn = document.getElementById('copy-details-btn');
-        btn.innerHTML = "✅ Order Details Copied!";
-        btn.style.background = "#28a745";
-        const pay = document.getElementById('payment-method').value;
-        showToast(pay === 'GCASH' ? "📋 Order copied! Don't forget to send GCash receipt!" : "📋 Order details copied!", pay === 'GCASH' ? 4000 : 2000);
-    }).catch(() => showToast("❌ Failed to copy. Please try again."));
-};
-
+// ============================================
+// SEND TO MESSENGER (no copy button, only send)
+// ============================================
 window.sendToMessenger = function() {
     const text = buildOrderText();
     if (!text) return;
     
-    // Copy to clipboard as fallback
+    // Copy to clipboard as fallback (in case pre‑fill doesn't work)
     navigator.clipboard.writeText(text).catch(() => {});
     
-    // Pre‑fill message using URL parameter
     const encodedText = encodeURIComponent(text);
     const messengerUrl = `${CONFIG.messengerUrl}?text=${encodedText}`;
     
-    // Open Messenger with pre‑filled message
     window.open(messengerUrl, '_blank');
-    
-    // Reset copy button after a delay
-    setTimeout(() => {
-        const btn = document.getElementById('copy-details-btn');
-        btn.innerHTML = "1. Copy Order Details 📋";
-        btn.style.background = "";
-        hasCopied = false;
-    }, 5000);
     
     showToast("📱 Messenger opened – message is pre‑filled!", 3000);
 };
@@ -1282,16 +1270,8 @@ window.sendToMessenger = function() {
 // ============================================
 // UI HELPERS
 // ============================================
-window.toggleGcashInfo = () => {
-    const isGcash = document.getElementById('payment-method').value === 'GCASH';
-    document.getElementById('gcash-info').style.display = isGcash ? 'block' : 'none';
-    if (isGcash) showToast("💳 GCash selected: Don't forget to send payment receipt!", 3000);
-    resetCopyButton();
-};
-
 window.closeModal = (id) => {
     document.getElementById(id).classList.remove('active');
-    if (id === 'checkout-modal') resetCopyButton();
 };
 
 window.downloadQR = function() {
@@ -1433,11 +1413,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const paymentMethodSelect = document.getElementById('payment-method');
     if (orderTypeSelect) {
         orderTypeSelect.addEventListener('change', toggleDeliveryFields);
-        orderTypeSelect.addEventListener('change', resetCopyButton);
     }
-    if (paymentMethodSelect) paymentMethodSelect.addEventListener('change', resetCopyButton);
+    if (paymentMethodSelect) {
+        paymentMethodSelect.addEventListener('change', toggleGcashInfo);
+    }
 
     toggleDeliveryFields();
+    toggleGcashInfo(); // ensure initial state (GCash not selected, so exact amount visible)
 
     selectedShippingAddress = '';
     selectedShippingFee = 0;
