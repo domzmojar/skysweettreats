@@ -22,6 +22,13 @@ let currentAnnouncement = null;
 let announcementDismissed = false;
 let announcementIcon = null;
 
+// Banners array
+let banners = [];
+
+// Carousel state
+let currentSlide = 0;
+let carouselInterval = null;
+
 // ============================================
 // CSV ROW PARSER – handles quoted fields
 // ============================================
@@ -45,7 +52,32 @@ function parseCSVRow(row) {
 }
 
 // ============================================
-// LOAD PRODUCTS + ANNOUNCEMENT + SHIPPING OPTIONS
+// CONVERT GOOGLE DRIVE LINK TO THUMBNAIL URL
+// ============================================
+function convertGoogleDriveLink(url) {
+    if (!url) return url;
+    
+    // Match Google Drive file ID from various link formats
+    const patterns = [
+        /(?:https?:\/\/)?drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/, // file/d/ID
+        /(?:https?:\/\/)?drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/, // open?id=ID
+        /(?:https?:\/\/)?drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/, // uc?id=ID
+        /[-\w]{25,}/ // if just the ID is pasted
+    ];
+    
+    for (let pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) {
+            const fileId = match[1] || match[0]; // extract ID
+            // Use thumbnail URL with size appropriate for your cards (400x400)
+            return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400-h400`;
+        }
+    }
+    return url; // return original if not a Google Drive link
+}
+
+// ============================================
+// LOAD PRODUCTS + ANNOUNCEMENT + SHIPPING OPTIONS + BANNERS
 // ============================================
 async function loadProducts(showToastOnSuccess = true) {
     try {
@@ -56,6 +88,7 @@ async function loadProducts(showToastOnSuccess = true) {
 
         const allProducts = [];
         const distanceRows = [];
+        const bannerRows = [];
         let announcementRow = null;
 
         rows.forEach(row => {
@@ -68,6 +101,8 @@ async function loadProducts(showToastOnSuccess = true) {
                 announcementRow = cols;
             } else if (id === 'DIST') {
                 distanceRows.push(cols);
+            } else if (id === 'BANNER') {
+                bannerRows.push(cols);
             } else if (id !== 'id') { // normal product (numeric id)
                 allProducts.push(cols);
             }
@@ -97,6 +132,15 @@ async function loadProducts(showToastOnSuccess = true) {
             renderShippingDropdown(shippingOptions);
         }
 
+        // Process banner rows – alt text in col1 (name), image in col11 (image)
+        banners = bannerRows.map(cols => ({
+            alt: cols[1]?.trim() || 'Banner',
+            image: convertGoogleDriveLink(cols[11]?.trim() || '')
+        })).filter(banner => banner.image);
+
+        // Render hero carousel
+        renderHeroCarousel();
+
         // Process normal products – column order: id, name, badge, category, price, details, status, stock, variant_option, has_flavors, unavailable_flavors, image
         products = allProducts.map(cols => {
             const id = cols[0]?.trim();
@@ -122,7 +166,8 @@ async function loadProducts(showToastOnSuccess = true) {
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
-            const image = cols[11]?.trim() || '';
+            // 🆕 Convert Google Drive links for product images too
+            const image = convertGoogleDriveLink(cols[11]?.trim() || '');
 
             return {
                 id, name, badge, category, price, details, status, stock,
@@ -136,6 +181,18 @@ async function loadProducts(showToastOnSuccess = true) {
         renderCategoriesAndMenu();
         validateCartAgainstNewStock();
         showAnnouncementIfNeeded();
+
+        // Restore the previously active category tab (if any)
+        if (window.lastActiveCategory) {
+            const activeTab = document.querySelector(`.category-tab[data-category="${window.lastActiveCategory}"]`);
+            if (activeTab) {
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                activeTab.classList.add('active');
+            }
+        }
+
+        // Force scroll spy to update active tab after re‑render
+        window.dispatchEvent(new Event('scroll'));
 
         if (showToastOnSuccess) {
             showToast("🔄 Menu updated with latest stock!");
@@ -153,6 +210,147 @@ async function loadProducts(showToastOnSuccess = true) {
             showToast("❌ Could not update stock. Check connection.");
         }
     }
+}
+
+// ============================================
+// RENDER HERO CAROUSEL
+// ============================================
+function renderHeroCarousel() {
+    const container = document.getElementById('hero-carousel');
+    if (!container) return;
+
+    if (banners.length === 0) {
+        container.innerHTML = ''; // hide if no banners
+        return;
+    }
+
+    // Stop previous interval if any
+    if (carouselInterval) {
+        clearInterval(carouselInterval);
+        carouselInterval = null;
+    }
+
+    currentSlide = 0;
+
+    const html = `
+        <div class="carousel-container">
+            <div class="carousel-slides" id="carousel-slides">
+                ${banners.map(banner => `
+                    <div class="carousel-slide">
+                        <img src="${banner.image}" alt="${banner.alt}" onerror="this.src='https://placehold.co/600x200?text=Image+Error'">
+                    </div>
+                `).join('')}
+            </div>
+            ${banners.length > 1 ? `
+                <button class="carousel-btn prev" id="carousel-prev">❮</button>
+                <button class="carousel-btn next" id="carousel-next">❯</button>
+                <div class="carousel-dots" id="carousel-dots">
+                    ${banners.map((_, i) => `<span class="carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`).join('')}
+                </div>
+            ` : ''}
+        </div>
+    `;
+    container.innerHTML = html;
+
+    if (banners.length > 1) {
+        setupCarousel();
+    }
+}
+
+// ============================================
+// SETUP CAROUSEL INTERACTIONS
+// ============================================
+function setupCarousel() {
+    const slides = document.getElementById('carousel-slides');
+    const prevBtn = document.getElementById('carousel-prev');
+    const nextBtn = document.getElementById('carousel-next');
+    const dots = document.querySelectorAll('.carousel-dot');
+    let slideWidth = slides.clientWidth;
+    let startX, startY, isDragging = false;
+
+    function updateSlide(index) {
+        if (index < 0) index = banners.length - 1;
+        if (index >= banners.length) index = 0;
+        currentSlide = index;
+        slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentSlide);
+        });
+    }
+
+    // Auto advance every 5 seconds
+    carouselInterval = setInterval(() => {
+        updateSlide(currentSlide + 1);
+    }, 5000);
+
+    if (prevBtn && nextBtn) {
+        prevBtn.addEventListener('click', () => {
+            updateSlide(currentSlide - 1);
+            // reset interval
+            clearInterval(carouselInterval);
+            carouselInterval = setInterval(() => {
+                updateSlide(currentSlide + 1);
+            }, 5000);
+        });
+        nextBtn.addEventListener('click', () => {
+            updateSlide(currentSlide + 1);
+            clearInterval(carouselInterval);
+            carouselInterval = setInterval(() => {
+                updateSlide(currentSlide + 1);
+            }, 5000);
+        });
+    }
+
+    dots.forEach(dot => {
+        dot.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            updateSlide(index);
+            clearInterval(carouselInterval);
+            carouselInterval = setInterval(() => {
+                updateSlide(currentSlide + 1);
+            }, 5000);
+        });
+    });
+
+    // Touch/swipe for mobile
+    slides.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        clearInterval(carouselInterval);
+    }, { passive: true });
+
+    slides.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault(); // prevent page scroll while swiping
+    }, { passive: false });
+
+    slides.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        const endX = e.changedTouches[0].clientX;
+        const deltaX = endX - startX;
+        const threshold = 50; // minimum swipe distance
+
+        if (Math.abs(deltaX) > threshold) {
+            if (deltaX > 0) {
+                // swipe right -> previous slide
+                updateSlide(currentSlide - 1);
+            } else {
+                // swipe left -> next slide
+                updateSlide(currentSlide + 1);
+            }
+        }
+        isDragging = false;
+        carouselInterval = setInterval(() => {
+            updateSlide(currentSlide + 1);
+        }, 5000);
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        slideWidth = slides.clientWidth;
+        slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+    });
 }
 
 // ============================================
@@ -431,7 +629,6 @@ function renderCategoriesAndMenu() {
     });
 
     let lastScrollY = window.scrollY;
-    let scrollDirection = 'down';
     let activeCategoryId = window.lastActiveCategory || null;
 
     function updateActiveTab(categoryId) {
@@ -446,35 +643,28 @@ function renderCategoriesAndMenu() {
     }
 
     function onScroll() {
-        const currentScrollY = window.scrollY;
-        scrollDirection = currentScrollY > lastScrollY ? 'down' : 'up';
-        lastScrollY = currentScrollY;
-
         const header = document.querySelector('.app-header');
         const tabs = document.querySelector('.category-tabs');
         const headerHeight = header ? header.offsetHeight : 0;
         const tabsHeight = tabs ? tabs.offsetHeight : 0;
         const stickyBottom = headerHeight + tabsHeight;
 
-        if (scrollDirection === 'down') {
-            for (let i = categoryBoundaries.length - 1; i >= 0; i--) {
-                const boundary = categoryBoundaries[i];
-                const headingTop = boundary.headingEl.getBoundingClientRect().top;
-                if (headingTop <= stickyBottom + 10) {
-                    updateActiveTab(boundary.id);
-                    break;
-                }
+        // Find the lowest category heading whose top is <= stickyBottom + 10
+        let activeId = null;
+        for (let i = categoryBoundaries.length - 1; i >= 0; i--) {
+            const boundary = categoryBoundaries[i];
+            const headingTop = boundary.headingEl.getBoundingClientRect().top;
+            if (headingTop <= stickyBottom + 10) {
+                activeId = boundary.id;
+                break;
             }
-        } else {
-            for (let i = 0; i < categoryBoundaries.length; i++) {
-                const boundary = categoryBoundaries[i];
-                const endBottom = boundary.endEl.getBoundingClientRect().bottom;
-                const viewportBottom = window.innerHeight;
-                if (endBottom >= viewportBottom - 10 && endBottom <= viewportBottom + 10) {
-                    updateActiveTab(boundary.id);
-                    break;
-                }
-            }
+        }
+        // If none found (e.g., all headings above sticky area), activate first category
+        if (!activeId && categoryBoundaries.length > 0) {
+            activeId = categoryBoundaries[0].id;
+        }
+        if (activeId) {
+            updateActiveTab(activeId);
         }
     }
 
