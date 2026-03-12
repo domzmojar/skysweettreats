@@ -1157,14 +1157,13 @@ body {
     border: 1px solid #eee;
 }
 
-/* ===== HERO CAROUSEL (OPTION 3: DYNAMIC HEIGHT) ===== */
+/* ===== HERO CAROUSEL (OPTION 3: DYNAMIC HEIGHT, SHARP EDGES) ===== */
 .hero-carousel {
     position: relative;
     width: 100%;
     max-width: 600px;
     margin: 0 auto;
     overflow: hidden;
-    border-radius: 0 0 20px 20px;
     box-shadow: var(--shadow);
 }
 
@@ -1172,7 +1171,6 @@ body {
     position: relative;
     width: 100%;
     overflow: hidden;
-    border-radius: 0 0 20px 20px;
 }
 
 .carousel-slides {
@@ -1183,7 +1181,7 @@ body {
 .carousel-slide {
     flex: 0 0 100%;
     height: auto;
-    aspect-ratio: 1195 / 896; /* matches your image ratio */
+    aspect-ratio: 1195 / 896; /* matches your image ratio – adjust if needed */
 }
 
 .carousel-slide img {
