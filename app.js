@@ -1,7 +1,7 @@
 const CONFIG = {
     currency: "₱",
     messengerUrl: "https://m.me/100089330907916",
-    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTMMb-QTohY5nGLYXB-eefCH0JZBXOqvc02U3MgFIalPmf4WLsnny45lyXx-CMmzrBI2pXy_f44Pd3E/pub?gid=0&single=true&output=csv",
+    sheetUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBquyZXkcMOzDv_14qyXq7sQvxqQ6k1l6tWZsiqspZ_mgl88Lqx08h3wUVYu9W9-MIP-ja5f-Yvtsj/pub?gid=1109857950&single=true&output=csv",
     businessPhone: "09264569430",
     businessHours: "8:00 AM - 9:00 PM"
 };
